@@ -5,26 +5,37 @@ import java.io.IOException;
 import java.util.ArrayList;
 class compiler {
   String data = ""; 
-  ArrayList<token> tokens;
   public static void main(String args[])throws IOException
   {
     compiler inst = new compiler();
     inst.readFile("test.tl");
-    inst.tokenize();
-    inst.write(inst.tokenToAsm());
-    
+    inst.write(inst.parse(inst.tokenize()));
+     
   }
-  public void terminate(int e)
+  public void terminate(int e,String error)
   {
     switch(e)
     {
       case 1:
-        System.out.println("unknown token");
+        System.out.println("Unknown Token : "+error);
+       break;
+      case 2:
+       System.out.println("Missing SemiColon");
+       break;
+      case 3:
+       System.out.println("Invalid Numeric Notation");
+       break;
+      case 4:
+       System.out.println("Invalid Usage of Brackets");
+       break;
+      case 5:
+       System.out.println("Invalid arguments for Exit");
        break;
       default:
        System.out.println("unknown error");
        break;
     }
+    System.exit(0);
   }
   //FILE READER
   public void readFile(String path)throws IOException
@@ -42,14 +53,28 @@ class compiler {
   //STRUCT FOR TOKENS
   record token(tokenType type, String val){}
   enum tokenType{
-    _return,
-    _number,
+    _type_int,
+    _type_string,
+    _int,
+    _string,
+    _exit,
+    _ident,
     _semi_colon,
+    _NumExp,
+    _print,
+    _equal,
+    _add,
+    _sub,
+    _mul,
+    _div,
+    _mod,
+    _open_bracket,
+    _close_bracket
   }
   //TOKENIZER
-  public void tokenize()
+  public ArrayList<token> tokenize()
   {
-    tokens = new ArrayList<token>();
+    ArrayList<token> tokens = new ArrayList<token>();
     for(int i=0;i<data.length();i++){
       if(Character.isLetter(data.charAt(i))){
         String buffer = "";
@@ -59,14 +84,23 @@ class compiler {
         }
         i--;
         switch(buffer){
-          case "return": 
-            tokens.add(new token(tokenType._return,""));
+          case "exit": 
+            tokens.add(new token(tokenType._exit,""));
+            break;
+          case "int":
+            tokens.add(new token(tokenType._type_int,""));
+            break;
+          case "string":
+            tokens.add(new token(tokenType._type_string,""));
+            break;
+          case "print":
+            tokens.add(new token(tokenType._print,""));
             break;
           default:
-            terminate(1);
+            tokens.add(new token(tokenType._ident,""));
         }
       }
-      else if(Character.isDigit(data.charAt(i)))
+      else if(Character.isDigit(data.charAt(i)))// tokenize number
       {
         String buffer = "";
         while(Character.isDigit(data.charAt(i)))
@@ -75,37 +109,164 @@ class compiler {
           i++;
         }
         i--;
-        tokens.add(new token(tokenType._number,buffer));
+        tokens.add(new token(tokenType._int,buffer));
+      }
+      else if(data.charAt(i)=='"')//tokenize Strings
+      {
+        String buffer = "";
+        while(data.charAt(i)!='"'){
+          buffer+=data.charAt(i);
+          i++;
+        }
+        tokens.add(new token(tokenType._string,buffer));
+      }
+      else if(data.charAt(i)=='('){
+        tokens.add(new token(tokenType._open_bracket,""));
+      }
+      else if(data.charAt(i)==')'){
+        tokens.add(new token(tokenType._close_bracket,""));
       }
       else if(data.charAt(i)==';'){
         tokens.add(new token(tokenType._semi_colon,""));
+      } 
+      else if(data.charAt(i)=='=')
+      {
+        tokens.add(new token(tokenType._equal,""));
       }
-      else if(data.charAt(i)==' '){
+      else if(data.charAt(i)==' '||data.charAt(i)=='\n'){
         continue;
       }
+      else if(data.charAt(i)=='+'){
+        tokens.add(new token(tokenType._add,""));
+      }
+      else if(data.charAt(i)=='-'){
+        tokens.add(new token(tokenType._sub,""));
+      }
+      else if(data.charAt(i)=='*'){
+        tokens.add(new token(tokenType._mul,""));
+      }
+      else if(data.charAt(i)=='/'){
+        tokens.add(new token(tokenType._div,""));
+      }
+      else if(data.charAt(i)=='%'){
+        tokens.add(new token(tokenType._mod,""));
+      }
+      else {
+        terminate(1,""+data.charAt(i));
+      }
     }
-    System.out.println(tokens);
+    //System.out.println(tokens);
+    return tokens;
   }
 
   //PARSER
-  public String tokenToAsm()
+  public String parse(ArrayList<token> tokens)
   {
     String output = "global _start\n_start:\n";
     for(int i = 0; i<tokens.size();i++){
-      token curr = tokens.get(i);
-      if(curr.type==tokenType._return){ 
-        if(i+2<tokens.size()&&tokens.get(i+1).type==tokenType._number&&tokens.get(i+2).type==tokenType._semi_colon)
-        {
-          output+="   mov rax, 60\n";
-          output+="   mov rdi, "+tokens.get(i+1).val+"\n";
-          output+="   syscall";
-        }
+      if(tokens.get(i).type==tokenType._exit){ 
+        output+=parseExit(nextSemiColon(tokens,i+1)); 
       }
     }
     System.out.println(output);
     return output;
   }
 
+  //NEXT BRACKET 
+  public ArrayList<token> nextBracket(ArrayList<token> tokens,int n)
+  {
+    ArrayList<token> out = new ArrayList<token>();
+    int depth = 0;
+    for(int i = n ; i<tokens.size();i++)
+    {
+      if(tokens.get(i).type == tokenType._close_bracket && depth ==0)
+      {
+        return out;
+      }
+      else if(tokens.get(i).type == tokenType._open_bracket)
+      {
+        depth++;
+      }
+      else if(tokens.get(i).type == tokenType._close_bracket)
+      {
+        depth--;
+      }
+      out.add(tokens.get(i));
+    }
+    if(depth == 0 ){
+      if(out.get(0).type==tokenType._open_bracket&&out.get(out.size()-1).type ==tokenType._close_bracket){
+        return new ArrayList<token>(out.subList(1,out.size()-1));
+      } 
+      return out;
+    }
+    terminate(4,"");
+    return null;
+  }
+
+
+  //NEXT SEMI COLON
+  public ArrayList<token> nextSemiColon(ArrayList<token> tokens,int n)
+  {
+    ArrayList<token> out = new ArrayList<token>();
+    for(int i = n ; i<tokens.size();i++)
+    {
+      if(tokens.get(i).type == tokenType._semi_colon)
+      {
+        //System.out.println(out);
+        return out;
+      }
+      out.add(tokens.get(i));
+    }
+    terminate(2,"");
+    return null;
+  }
+
+  //PARSE NUMEXP 
+  public Boolean isNumExp(ArrayList<token> tokens){
+    for(int i = 0;i<tokens.size();i++){
+      if(tokens.get(i).type == tokenType._open_bracket){
+        System.out.println("hello there , this is a braket within a braket"+nextBracket(tokens,i));
+        if(isNumExp(nextBracket(tokens,i))==false)
+        {
+          terminate(3,"");
+        }
+        else{
+          while(i<tokens.size()&&tokens.get(i).type!=tokenType._close_bracket){
+            i++;
+          }
+          i++; 
+        }
+      }
+      else if(tokens.get(i).type != tokenType._int&&tokens.get(i).type != tokenType._mod &&tokens.get(i).type!= tokenType._add&&tokens.get(i).type != tokenType._div &&tokens.get(i).type != tokenType._sub&&tokens.get(i).type != tokenType._mul)
+      {
+        terminate(3,"");
+        return false;
+      }
+    }
+    return true;
+  }
+  public String parseNumExp(){
+    return "";
+  }
+  //PARSE EXIT
+  public String parseExit(ArrayList<token> tokens){
+    System.out.println(nextBracket(tokens,0));
+    String output = "";
+    if(isNumExp(nextBracket(tokens,0)))
+    {
+      System.out.println(tokens);
+      System.out.println("IS VALID");
+      output+="   mov rax, 60\n";
+      output+="   mov rdi, "+tokens.get(1).val+"\n";
+      output+="   syscall";
+      return output;
+    }
+    else
+    {
+      terminate(5,"");
+    }
+    return "Error";
+  }
   //FILE WRITER
   void write(String content)throws IOException{
     FileWriter fw = new FileWriter("output.asm");
@@ -113,3 +274,5 @@ class compiler {
     fw.close();
   }
 }
+
+
