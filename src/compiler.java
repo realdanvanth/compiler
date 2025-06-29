@@ -31,6 +31,12 @@ class compiler {
       case 5:
        System.out.println("Invalid arguments for Exit");
        break;
+      case 6:
+       System.out.println("Invalid integer declaration");
+       break;
+      case 7:
+       System.out.println("Invalid print statement");
+       break;
       default:
        System.out.println("unknown error");
        break;
@@ -93,7 +99,7 @@ class compiler {
           case "string":
             tokens.add(new token(tokenType._type_string,""));
             break;
-          case "print":
+          case "printf":
             tokens.add(new token(tokenType._print,""));
             break;
           default:
@@ -114,7 +120,8 @@ class compiler {
       else if(data.charAt(i)=='"')//tokenize Strings
       {
         String buffer = "";
-        while(data.charAt(i)!='"'){
+        i++;
+        while(i<data.length()&&data.charAt(i)!='"'){
           buffer+=data.charAt(i);
           i++;
         }
@@ -162,18 +169,25 @@ class compiler {
   //PARSER
   public String parse(ArrayList<token> tokens)
   {
-    String output = "global _start\n_start:\n";
+    String output = "fn main(){\n";
     for(int i = 0; i<tokens.size();i++){
       if(tokens.get(i).type==tokenType._exit){ 
         output+=parseExit(nextSemiColon(tokens,i+1)); 
       }
+      if(tokens.get(i).type==tokenType._type_int){
+        output+=parseInt(nextSemiColon(tokens, i+1));
+      }
+      if(tokens.get(i).type==tokenType._print){
+        output+=parsePrint(nextSemiColon(tokens, i+1));
+      }
     }
+    output+="}";
     System.out.println(output);
     return output;
   }
 
   //NEXT BRACKET 
-  public ArrayList<token> nextBracket(ArrayList<token> tokens,int n)
+  public ArrayList<token> nextBracket(ArrayList<token> tokens,int n)//pass i (i and the rbracket is removed) 
   {
     ArrayList<token> out = new ArrayList<token>();
     int depth = 0;
@@ -205,7 +219,7 @@ class compiler {
 
 
   //NEXT SEMI COLON
-  public ArrayList<token> nextSemiColon(ArrayList<token> tokens,int n)
+  public ArrayList<token> nextSemiColon(ArrayList<token> tokens,int n)//pass i+1 (semicolon is removed)
   {
     ArrayList<token> out = new ArrayList<token>();
     for(int i = n ; i<tokens.size();i++)
@@ -237,7 +251,9 @@ class compiler {
           i++; 
         }
       }
-      else if(tokens.get(i).type != tokenType._int&&tokens.get(i).type != tokenType._mod &&tokens.get(i).type!= tokenType._add&&tokens.get(i).type != tokenType._div &&tokens.get(i).type != tokenType._sub&&tokens.get(i).type != tokenType._mul)
+      else if(tokens.get(i).type != tokenType._int&&tokens.get(i).type != tokenType._mod &&
+          tokens.get(i).type!= tokenType._add&&tokens.get(i).type != tokenType._div &&
+          tokens.get(i).type != tokenType._sub&&tokens.get(i).type != tokenType._mul)
       {
         terminate(3,"");
         return false;
@@ -254,11 +270,8 @@ class compiler {
     String output = "";
     if(isNumExp(nextBracket(tokens,0)))
     {
-      System.out.println(tokens);
-      System.out.println("IS VALID");
-      output+="   mov rax, 60\n";
-      output+="   mov rdi, "+tokens.get(1).val+"\n";
-      output+="   syscall";
+      System.out.println(tokens); 
+      output+="process::exit("+tokens.get(1).val+")";
       return output;
     }
     else
@@ -266,6 +279,34 @@ class compiler {
       terminate(5,"");
     }
     return "Error";
+  }
+  public String parseInt(ArrayList<token> tokens){
+    System.out.println(tokens);
+    String output = "let mut ";
+    if(tokens.size()!=3){
+      terminate(6, "");
+    }
+    if(tokens.get(0).type==tokenType._ident&&tokens.get(1).type==tokenType._equal&&
+        tokens.get(2).type==tokenType._int){
+      output+=tokens.get(0).val+"= "+tokens.get(2).val+";\n";
+      return output;
+        } 
+    terminate(6,"");
+    return "Error";
+  }
+  public String parsePrint(ArrayList<token> tokens){
+    System.out.println(tokens);
+    if(tokens.size()!=3){
+      terminate(7,"");
+    }
+    if(tokens.get(0).type==tokenType._open_bracket&&
+        tokens.get(1).type==tokenType._string&&
+        tokens.get(2).type==tokenType._close_bracket){
+      return "println!(\""+tokens.get(1).val+"\");\n";
+        }
+    terminate(7,"");
+    return "Error";
+    
   }
   //FILE WRITER
   void write(String content)throws IOException{
