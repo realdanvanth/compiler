@@ -1,2 +1,2 @@
-# compiler
-simple x86 compiler written in java
+# transpiler 
+simple transpiler written in java to convert a custom language to rust
