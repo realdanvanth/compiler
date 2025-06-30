@@ -37,6 +37,9 @@ class compiler {
       case 7:
        System.out.println("Invalid print statement");
        break;
+      case 8:
+       System.out.println("Invalid String declaration");
+       break;
       default:
        System.out.println("unknown error");
        break;
@@ -180,6 +183,9 @@ class compiler {
       if(tokens.get(i).type==tokenType._print){
         output+=parsePrint(nextSemiColon(tokens, i+1));
       }
+      if(tokens.get(i).type==tokenType._type_string){
+        output+=parseString(nextSemiColon(tokens, i+1));
+      }
     }
     output+="}";
     System.out.println(output);
@@ -271,7 +277,7 @@ class compiler {
     if(isNumExp(nextBracket(tokens,0)))
     {
       System.out.println(tokens); 
-      output+="process::exit("+tokens.get(1).val+")";
+      output+="process::exit("+tokens.get(1).val+")\n";
       return output;
     }
     else
@@ -294,6 +300,22 @@ class compiler {
     terminate(6,"");
     return "Error";
   }
+
+  public String parseString(ArrayList<token> tokens){
+    System.out.println(tokens);
+    String output = "let mut ";
+    if(tokens.size()!=3){
+      terminate(8,"");
+    }
+    if(tokens.get(0).type==tokenType._ident&&tokens.get(1).type==tokenType._equal&&
+        tokens.get(2).type==tokenType._string){
+      output+=tokens.get(0).val+"= \""+tokens.get(2).val+"\";\n";
+      return output;
+        }
+    terminate(8,"");
+    return "Error";
+  }
+
   public String parsePrint(ArrayList<token> tokens){
     System.out.println(tokens);
     if(tokens.size()!=3){
