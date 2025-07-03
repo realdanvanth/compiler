@@ -1,4 +1,3 @@
-import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -47,6 +46,7 @@ class compiler {
         break;
       case 10:
         System.out.println("Invalid assignment");
+        break;
       default:
         System.out.println("unknown error");
         break;
@@ -177,9 +177,9 @@ class compiler {
         output += parsePrint(nextSemiColon(tokens, i + 1));
       } else if (tokens.get(i).type == tokenType._type_string) {
         output += parseStringDeclaration(nextSemiColon(tokens, i + 1));
-      } else if (tokens.get(i).type == tokenType._ident) {
+      } /*else if (tokens.get(i).type == tokenType._ident) {
         output += parseModIdent(nextSemiColon(tokens, i));
-      }
+      }*/
     }
     output += "}";
     System.out.println(output);
@@ -277,18 +277,12 @@ class compiler {
 
   public String parseIntDeclaration(ArrayList<token> tokens) {
     System.out.println(tokens);
-    String output = "let mut ";
-    if (tokens.size() != 3) {
-      terminate(6, "");
+    tokenType grammar[] = {tokenType._ident,tokenType._equal,tokenType._int};
+    if(isSame(constructGrammar(grammar),tokens)){
+      System.out.println("i am hereee");
+      return "let mut "+tokens.get(0).val+" = "+tokens.get(2).val+";\n"; 
     }
-    if (tokens.get(0).type == tokenType._ident &&
-        tokens.get(1).type == tokenType._equal &&
-        tokens.get(2).type == tokenType._int) {
-      output += tokens.get(0).val + "= " + tokens.get(2).val + ";\n";
-      _varInt.add(tokens.get(0).val);
-      return output;
-    }
-    terminate(6, "");
+    terminate(6,"");
     return "Error";
   }
 
@@ -302,7 +296,7 @@ class compiler {
         tokens.get(1).type == tokenType._equal &&
         tokens.get(2).type == tokenType._string) {
       output += tokens.get(0).val + "= \"" + tokens.get(2).val + "\";\n";
-      _varString.add(tokens.get(0).val);
+      _varString.add(tokens.get(0).val); 
       return output;
     }
     terminate(8, "");
@@ -335,6 +329,7 @@ class compiler {
           tokens.get(0).type == tokenType._type_string) { // String b= a;
       }
     }*/
+
     if(tokens.size()==3){//a=b;
       if(isVar(tokens.get(0).val)==1&&isVar(tokens.get(2).val)==1&&tokens.get(1).type==tokenType._equal){
         return tokens.get(0).val+" = "+tokens.get(2).val;
@@ -357,7 +352,30 @@ class compiler {
       return 0;
     }
   }
+  public boolean isSame(ArrayList<token> grammar,ArrayList<token> tokens){
+    if(tokens.size()!=grammar.size()){
+      System.out.println("i am here");
+      return false;
+    }
+    else{
+      for(int i=0;i<tokens.size();i++){
+        if(tokens.get(i).type!=grammar.get(i).type){
+          System.out.println(tokens.get(i));
+          System.out.println("returned false");
+          return false;
+        }
+      }
+      return true;
+    }
+  }
 
+  public ArrayList<token> constructGrammar(tokenType type[]){
+    ArrayList<token> grammar= new ArrayList<>();
+    for(int i=0;i<type.length;i++){
+      grammar.add(new token(type[i],""));
+    }
+    return grammar;
+  }
   // FILE WRITER
   void write(String content) throws IOException {
     FileWriter fw = new FileWriter("output.asm");
