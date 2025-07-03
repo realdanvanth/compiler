@@ -8,7 +8,7 @@ class compiler {
   String data = "";
   HashSet<String> _varInt = new HashSet<>();
   HashSet<String> _varString = new HashSet<>();
-
+  int parseIndex = 0;
   public static void main(String args[]) throws IOException {
     compiler inst = new compiler();
     inst.readFile("test.tl");
@@ -168,18 +168,18 @@ class compiler {
   // PARSER
   public String parse(ArrayList<token> tokens) {
     String output = "fn main(){\n";
-    for (int i = 0; i < tokens.size(); i++) {
-      if (tokens.get(i).type == tokenType._exit) {
-        output += parseExit(nextSemiColon(tokens, i + 1));
-      } else if (tokens.get(i).type == tokenType._type_int) {
-        output += parseIntDeclaration(nextSemiColon(tokens, i + 1));
-      } else if (tokens.get(i).type == tokenType._print) {
-        output += parsePrint(nextSemiColon(tokens, i + 1));
-      } else if (tokens.get(i).type == tokenType._type_string) {
-        output += parseStringDeclaration(nextSemiColon(tokens, i + 1));
-      } /*else if (tokens.get(i).type == tokenType._ident) {
-        output += parseModIdent(nextSemiColon(tokens, i));
-      }*/
+    for (parseIndex = 0; parseIndex < tokens.size(); parseIndex++) {
+      if (tokens.get(parseIndex).type == tokenType._exit) {
+        output += parseExit(nextSemiColon(tokens, parseIndex+1));
+      } else if (tokens.get(parseIndex).type == tokenType._type_int) {
+        output += parseIntDeclaration(nextSemiColon(tokens, parseIndex+1));
+      } else if (tokens.get(parseIndex).type == tokenType._print) {
+        output += parsePrint(nextSemiColon(tokens, parseIndex+1));
+      } else if (tokens.get(parseIndex).type == tokenType._type_string) {
+        output += parseStringDeclaration(nextSemiColon(tokens,parseIndex+1));
+      } else if (tokens.get(parseIndex).type == tokenType._ident) {
+        output += parseModIdent(nextSemiColon(tokens, parseIndex+1));
+      }
     }
     output += "}";
     System.out.println(output);
@@ -221,6 +221,7 @@ class compiler {
     for (int i = n; i < tokens.size(); i++) {
       if (tokens.get(i).type == tokenType._semi_colon) {
         // System.out.println(out);
+        parseIndex = i+1;
         return out;
       }
       out.add(tokens.get(i));
