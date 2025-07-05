@@ -9,10 +9,12 @@ class compiler {
   HashSet<String> _varInt = new HashSet<>();
   HashSet<String> _varString = new HashSet<>();
   int parseIndex = 0;
+  int temp = 0;
   public static void main(String args[]) throws IOException {
     compiler inst = new compiler();
     inst.readFile("test.tl");
     inst.write(inst.parse(inst.tokenize()));
+    //System.out.println(inst.isNumExp(inst.tokenize()));
   }
 
   public void terminate(int e, String error) {
@@ -113,7 +115,7 @@ class compiler {
           case "string":
             tokens.add(new token(tokenType._type_string, ""));
             break;
-          case "printf":
+          case "print":
             tokens.add(new token(tokenType._print, ""));
             break;
           default:
@@ -170,15 +172,15 @@ class compiler {
     String output = "fn main(){\n";
     for (parseIndex = 0; parseIndex < tokens.size(); parseIndex++) {
       if (tokens.get(parseIndex).type == tokenType._exit) {
-        output += parseExit(nextSemiColon(tokens, parseIndex+1));
+        output += parseExit(nextSemiColon(tokens, parseIndex + 1));
       } else if (tokens.get(parseIndex).type == tokenType._type_int) {
-        output += parseIntDeclaration(nextSemiColon(tokens, parseIndex+1));
+        output += parseIntDeclaration(nextSemiColon(tokens, parseIndex + 1));
       } else if (tokens.get(parseIndex).type == tokenType._print) {
-        output += parsePrint(nextSemiColon(tokens, parseIndex+1));
+        output += parsePrint(nextSemiColon(tokens, parseIndex + 1));
       } else if (tokens.get(parseIndex).type == tokenType._type_string) {
-        output += parseStringDeclaration(nextSemiColon(tokens,parseIndex+1));
+        output += parseStringDeclaration(nextSemiColon(tokens, parseIndex + 1));
       } else if (tokens.get(parseIndex).type == tokenType._ident) {
-        output += parseModIdent(nextSemiColon(tokens, parseIndex+1));
+        output += parseModIdent(nextSemiColon(tokens, parseIndex + 1));
       }
     }
     output += "}";
@@ -190,21 +192,25 @@ class compiler {
   public ArrayList<token> nextBracket(ArrayList<token> tokens,
       int n) // pass i (i and the rbracket is removed)
   {
+    temp=0;
+    System.out.println("Next Brackets tokens"+tokens);
     ArrayList<token> out = new ArrayList<token>();
-    int depth = 0;
+    int depth = 0; 
     for (int i = n; i < tokens.size(); i++) {
-      if (tokens.get(i).type == tokenType._close_bracket && depth == 0) {
-        return out;
-      } else if (tokens.get(i).type == tokenType._open_bracket) {
-        depth++;
-      } else if (tokens.get(i).type == tokenType._close_bracket) {
+      if (tokens.get(i).type == tokenType._open_bracket) {
+          depth++;
+      } else if (depth!=0&&tokens.get(i).type == tokenType._close_bracket) {
         depth--;
+      } else if (tokens.get(i).type == tokenType._close_bracket) {
+        temp = i+1;
+        return out;
       }
       out.add(tokens.get(i));
     }
     if (depth == 0) {
       if (out.get(0).type == tokenType._open_bracket &&
           out.get(out.size() - 1).type == tokenType._close_bracket) {
+        temp = tokens.size();
         return new ArrayList<token>(out.subList(1, out.size() - 1));
       }
       return out;
@@ -217,11 +223,12 @@ class compiler {
   public ArrayList<token> nextSemiColon(ArrayList<token> tokens,
       int n) // pass i+1 (semicolon is removed)
   {
+    //System.out.println(tokens);
     ArrayList<token> out = new ArrayList<token>();
     for (int i = n; i < tokens.size(); i++) {
       if (tokens.get(i).type == tokenType._semi_colon) {
-        // System.out.println(out);
-        parseIndex = i+1;
+        System.out.println(out);
+        parseIndex = i + 1;
         return out;
       }
       out.add(tokens.get(i));
@@ -232,25 +239,41 @@ class compiler {
 
   // PARSE NUMEXP
   public Boolean isNumExp(ArrayList<token> tokens) {
+    System.out.println("is numexp?: "+tokens);
+    if(tokens.size()==0){
+      return false;
+    }
     for (int i = 0; i < tokens.size(); i++) {
       if (tokens.get(i).type == tokenType._open_bracket) {
         System.out.println("hello there , this is a braket within a braket" +
-            nextBracket(tokens, i));
+                           nextBracket(tokens, i));
         if (isNumExp(nextBracket(tokens, i)) == false) {
           terminate(3, "");
         } else {
           while (i < tokens.size() &&
-              tokens.get(i).type != tokenType._close_bracket) {
+                 tokens.get(i).type != tokenType._close_bracket) {
             i++;
           }
           i++;
         }
-      } else if (tokens.get(i).type != tokenType._int &&
-          tokens.get(i).type != tokenType._mod &&
-          tokens.get(i).type != tokenType._add &&
-          tokens.get(i).type != tokenType._div &&
-          tokens.get(i).type != tokenType._sub &&
-          tokens.get(i).type != tokenType._mul) {
+      }
+      else if (tokens.get(i).type == tokenType._mod ||
+                 tokens.get(i).type == tokenType._add ||
+                 tokens.get(i).type == tokenType._div ||
+                 tokens.get(i).type == tokenType._sub ||
+                 tokens.get(i).type == tokenType._mul) {
+          if(i-1<0||i+1>=tokens.size()){
+            terminate(3,"");
+          }
+          if(!((tokens.get(i-1).type==tokenType._close_bracket||tokens.get(i-1).type==tokenType._int)
+              &&(tokens.get(i+1).type==tokenType._open_bracket||tokens.get(i+1).type==tokenType._int)))
+          {
+            System.out.println("hellll");
+            terminate(3,"");
+          }
+        }
+       else if (tokens.get(i).type != tokenType._int) {
+         System.out.println("hello");
         terminate(3, "");
         return false;
       }
@@ -263,27 +286,35 @@ class compiler {
   }
 
   // PARSE EXIT
-  public String parseExit(ArrayList<token> tokens) {
-    System.out.println(nextBracket(tokens, 0));
+  public String parseExit(ArrayList<token> tokens) { // (0)
+    System.out.println("peeled one: "+nextBracket(tokens, 0));
     String output = "";
-    if (isNumExp(nextBracket(tokens, 0))) {
-      System.out.println(tokens);
-      output += "process::exit(" + tokens.get(1).val + ")\n";
-      return output;
-    } else {
-      terminate(5, "");
+    /*
+     * if (isNumExp(nextBracket(tokens, 0))) {
+     * System.out.println(tokens);
+     * output += "process::exit(" + tokens.get(1).val + ")\n";
+     * return output;
+     * } else {
+     * terminate(5, "");
+     * }
+     */
+    tokenType grammar[] = { tokenType._open_bracket, tokenType._NumExp,
+        tokenType._close_bracket };
+    System.out.println("TOKENS HERE"+tokens);
+    if(isSame(constructGrammar(grammar),tokens)){
+      return "process::exit("+tokens.get(1).val+");\n";
     }
     return "Error";
   }
 
   public String parseIntDeclaration(ArrayList<token> tokens) {
     System.out.println(tokens);
-    tokenType grammar[] = {tokenType._ident,tokenType._equal,tokenType._int};
-    if(isSame(constructGrammar(grammar),tokens)){
+    tokenType grammar[] = { tokenType._ident, tokenType._equal, tokenType._int };
+    if (isSame(constructGrammar(grammar), tokens)) {
       System.out.println("i am hereee");
-      return "let mut "+tokens.get(0).val+" = "+tokens.get(2).val+";\n"; 
+      return "let mut " + tokens.get(0).val + " = " + tokens.get(2).val + ";\n";
     }
-    terminate(6,"");
+    terminate(6, "");
     return "Error";
   }
 
@@ -297,7 +328,7 @@ class compiler {
         tokens.get(1).type == tokenType._equal &&
         tokens.get(2).type == tokenType._string) {
       output += tokens.get(0).val + "= \"" + tokens.get(2).val + "\";\n";
-      _varString.add(tokens.get(0).val); 
+      _varString.add(tokens.get(0).val);
       return output;
     }
     terminate(8, "");
@@ -320,26 +351,31 @@ class compiler {
 
   public String parseModIdent(ArrayList<token> tokens) {
     // a = b; a is int
-    /*if (tokens.size() == 4) {//should be implemented in int declaration and string declaration
-      if (isVar(tokens.get(1).val) == 1 &&
-          tokens.get(0).type == tokenType._type_int) { // int a = b;
-      }
+    /*
+     * if (tokens.size() == 4) {//should be implemented in int declaration and
+     * string declaration if (isVar(tokens.get(1).val) == 1 &&
+     * tokens.get(0).type
+     * == tokenType._type_int) { // int a = b;
+     * }
+     *
+     * // a = b; a is string
+     * if (isVar(tokens.get(1).val) == 1 &&
+     * tokens.get(0).type == tokenType._type_string) { // String b= a;
+     * }
+     * }
+     */
 
-      // a = b; a is string
-      if (isVar(tokens.get(1).val) == 1 &&
-          tokens.get(0).type == tokenType._type_string) { // String b= a;
+    if (tokens.size() == 3) { // a=b;
+      if (isVar(tokens.get(0).val) == 1 && isVar(tokens.get(2).val) == 1 &&
+          tokens.get(1).type == tokenType._equal) {
+        return tokens.get(0).val + " = " + tokens.get(2).val;
       }
-    }*/
-
-    if(tokens.size()==3){//a=b;
-      if(isVar(tokens.get(0).val)==1&&isVar(tokens.get(2).val)==1&&tokens.get(1).type==tokenType._equal){
-        return tokens.get(0).val+" = "+tokens.get(2).val;
-      }
-      if(isVar(tokens.get(0).val)==2&&isVar(tokens.get(2).val)==2&&tokens.get(1).type==tokenType._equal){
-        return tokens.get(0).val+" = "+tokens.get(2).val;
+      if (isVar(tokens.get(0).val) == 2 && isVar(tokens.get(2).val) == 2 &&
+          tokens.get(1).type == tokenType._equal) {
+        return tokens.get(0).val + " = " + tokens.get(2).val;
       }
     }
-    terminate(10,"");
+    terminate(10, "");
     return "Error";
   }
 
@@ -353,30 +389,43 @@ class compiler {
       return 0;
     }
   }
-  public boolean isSame(ArrayList<token> grammar,ArrayList<token> tokens){
-    if(tokens.size()!=grammar.size()){
-      System.out.println("i am here");
+
+  public boolean isSame(ArrayList<token> grammar, ArrayList<token> tokens) {
+    /*if (tokens.size() != grammar.size()) {
+      //System.out.println("i am here");
       return false;
-    }
-    else{
-      for(int i=0;i<tokens.size();i++){
-        if(tokens.get(i).type!=grammar.get(i).type){
+    } */
+    //if {
+    System.out.println("WHAR THE FUCK IS HAPPENING");
+    System.out.println(grammar);
+    System.out.println(tokens);
+    temp = 0;
+      for (int i = 0; i < tokens.size(); i++) {
+        if (grammar.get(i).type == tokenType._NumExp) {
+          System.out.println("i am here though");
+          if (!isNumExp(nextBracket(tokens, i))) {
+            System.out.println("fucker i am here");
+            terminate(3, "");
+          }
+        }
+        if (tokens.get(i+temp).type != grammar.get(i).type) {
           System.out.println(tokens.get(i));
           System.out.println("returned false");
           return false;
         }
       }
       return true;
-    }
+    //}
   }
 
-  public ArrayList<token> constructGrammar(tokenType type[]){
-    ArrayList<token> grammar= new ArrayList<>();
-    for(int i=0;i<type.length;i++){
-      grammar.add(new token(type[i],""));
+  public ArrayList<token> constructGrammar(tokenType type[]) {
+    ArrayList<token> grammar = new ArrayList<>();
+    for (int i = 0; i < type.length; i++) {
+      grammar.add(new token(type[i], ""));
     }
     return grammar;
   }
+
   // FILE WRITER
   void write(String content) throws IOException {
     FileWriter fw = new FileWriter("output.asm");
