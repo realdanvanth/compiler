@@ -12,7 +12,7 @@ class transpiler{
     System.out.println(inst.readFile("test.tl"));
     //System.out.println(inst.tokenize(inst.readFile("test.tl")));
     ArrayList<token> tokens = inst.tokenize(inst.readFile("test.tl"));
-    PrintStmt stmt = new PrintStmt(tokens);
+    AssignStmt stmt = new AssignStmt(tokens);
     stmt.build();
     System.out.println(stmt.parse());
   }
@@ -153,7 +153,7 @@ class IdentifierNode extends ASTNode{
   }
   @Override
   String parse(){
-    return "\""+value+"\"";
+    return value;
   }
 }
 class BinOpNode extends ASTNode{
@@ -198,7 +198,7 @@ abstract class stmt{
   public ArrayList<token> tokens;
   abstract String parse();
   public void hardExpect(tokenType t){
-    if(index>=tokens.size()||tokens.get(index).type()!=t){
+    if(tokens ==null ||index>=tokens.size()||tokens.get(index).type()!=t){
       System.out.println("expected : "+t);
       System.exit(0);
     }
@@ -226,11 +226,12 @@ class PrintStmt extends stmt{
   }
   void build(){
     System.out.println(tokens);
+    hardExpect(tokenType._print);
     hardExpect(tokenType._open_bracket);
     if(expect(tokenType._ident)){
       expression = new IdentifierNode(tokens.get(index).val());
     }
-    if(expect(tokenType._int)){
+    else if(expect(tokenType._int)){
       expression = new IntNode(tokens.get(index).val());
     }
     else if(expect(tokenType._string)){
@@ -238,34 +239,82 @@ class PrintStmt extends stmt{
     }
     else{
       System.out.println("invalid print stmt");
+      System.exit(0);
+    }
+    consume();
+    hardExpect(tokenType._close_bracket);
+  }
+}
+
+class AssignStmt extends stmt{
+  IdentifierNode var;
+  ASTNode value;
+  AssignStmt(ArrayList<token> tokens){
+    this.tokens = tokens;
+  }
+  @Override
+  String parse(){
+    return "let mut "+var.parse()+" = "+value.parse()+";\n";
+  }
+  void build(){
+    if(expect(tokenType._type_int))
+    {
+      consume(); 
+      var = new IdentifierNode(tokens.get(index).val());
+      consume();
+      hardExpect(tokenType._equal);
+      if(expect(tokenType._int)){
+        value = new IntNode(tokens.get(index).val());
+      }
+      else{
+        System.out.println("invalid assignment");
+        System.exit(0);
+      }
+    }
+    else if(expect(tokenType._type_string)){
+      consume();
+      var = new IdentifierNode(tokens.get(index).val());
+      if(expect(tokenType._string)){
+        value = new StringNode(tokens.get(index).val());
+      }
+      else{
+        System.out.println("invalid assignment");
+        System.exit(0);
+      }
+    }
+    consume();
+  }
+
+
+}
+class ExitStmt extends stmt{
+  ASTNode expression; 
+  ExitStmt(ArrayList<token> tokens){
+    this.tokens = tokens;
+  }
+  @Override
+  String parse(){
+    return "std::process:exit("+expression.parse()+");\n";
+  }
+  void build(){ 
+    System.out.println("hello"+tokens);
+    hardExpect(tokenType._exit);
+    hardExpect(tokenType._open_bracket);
+     if(expect(tokenType._ident)){
+      expression = new IdentifierNode(tokens.get(index).val());
+    }
+    else if(expect(tokenType._int)){
+      expression = new IntNode(tokens.get(index).val());
+    } 
+    else{
+      System.out.println("invalid exit stmt");
+      System.exit(0);
     }
     consume();
     hardExpect(tokenType._close_bracket);
   }
 }
 /*
-class AssignStmt extends stmt{
-  IdentifierNode var;
-  ASTNode value;
-  AssignStmt(IdentifierNode var,ASTNode value){
-    this.var = var;
-    this.value = value;
-  }
-  @Override
-  String parse(){
-    return "let mut "+var.parse()+" = "+value.parse()+";\n";
-  }
-}
-class ExitStmt extends stmt{
-  ASTNode expression;
-  ExitStmt(ASTNode expression){
-    this.expression = expression;
-  }
-  @Override
-  String parse(){
-    return "std::process:exit("+expression.parse()+");\n";
-  }
-}
 class Program extends ASTNode{
   List<stmt> statements;
   Program(List<stmt>statements){
