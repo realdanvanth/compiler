@@ -1,28 +1,34 @@
+import java.beans.Statement;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-class transpiler{
+
+class transpiler {
   String data;
   int index;
   ArrayList<token> tokens;
-  public static void main(String args[]) throws IOException{
-    transpiler inst= new transpiler();
+
+  public static void main(String args[]) throws IOException {
+    transpiler inst = new transpiler();
     System.out.println(inst.readFile("test.tl"));
-    //System.out.println(inst.tokenize(inst.readFile("test.tl")));
-    ArrayList<token> tokens = inst.tokenize(inst.readFile("test.tl"));
-    AssignStmt stmt = new AssignStmt(tokens);
-    stmt.build();
-    System.out.println(stmt.parse());
+    // System.out.println(inst.tokenize(inst.readFile("test.tl")));
+    Program a = new Program(inst.tokenize(inst.readFile("test.tl")));
+    //a.build(); 
+    System.out.println(a.parse());
   }
-  //FILE WRITER..................................................................................................
+
+  // FILE
+  // WRITER..................................................................................................
   void write(String content) throws IOException {
     FileWriter fw = new FileWriter("output.rs");
     fw.write(content);
     fw.close();
   }
-  //FILE READER..................................................................................................
+
+  // FILE
+  // READER..................................................................................................
   public String readFile(String path) throws IOException {
     String data = "";
     FileReader fr = new FileReader(path);
@@ -35,11 +41,12 @@ class transpiler{
     fr.close();
     return data;
   }
-  //LEXER....................................................................................................... 
+
+  // LEXER.......................................................................................................
   public ArrayList<token> tokenize(String data) {
     ArrayList<token> tokens = new ArrayList<token>();
     for (int i = 0; i < data.length(); i++) {
-      if (Character.isLetter(data.charAt(i))) {// variables
+      if (Character.isLetter(data.charAt(i))) { // variables
         String buffer = "";
         while (Character.isLetter(data.charAt(i)) ||
             Character.isDigit(data.charAt(i))) {
@@ -63,7 +70,7 @@ class transpiler{
           default:
             tokens.add(new token(tokenType._ident, buffer));
         }
-      } else if (Character.isDigit(data.charAt(i))){
+      } else if (Character.isDigit(data.charAt(i))) {
         String buffer = "";
         while (Character.isDigit(data.charAt(i))) {
           buffer += data.charAt(i);
@@ -71,8 +78,7 @@ class transpiler{
         }
         i--;
         tokens.add(new token(tokenType._int, buffer));
-      } else if (data.charAt(i) == '"')
-      {
+      } else if (data.charAt(i) == '"') {
         String buffer = "";
         i++;
         while (i < data.length() && data.charAt(i) != '"') {
@@ -105,229 +111,337 @@ class transpiler{
       }
     }
     this.tokens = tokens;
+    // System.out.println(tokens);
     return tokens;
   }
-  //............................................................................................................ 
-  //.............................................................................................................
+  // ............................................................................................................
+  // .............................................................................................................
 }
+
 record token(tokenType type, String val) {
-  }
+}
 
 enum tokenType {
-    _type_int, _type_string, _int, _string, _exit, _ident,_semi_colon,
-    _NumExp,_print,_equal,_add,_sub,_mul,_div,_mod,_open_bracket,
-    _close_bracket
-  }
-abstract class ASTNode {
-  abstract String parse(); 
-  /*public static void main(String args[]){
-  ASTNode s = new StringNode("hello world");
-  stmt s1 = new ExitStmt(s);
-  System.out.println(s1.parse());
-  }*/
+  _type_int,
+  _type_string,
+  _int,
+  _string,
+  _exit,
+  _ident,
+  _semi_colon,
+  _NumExp,
+  _print,
+  _equal,
+  _add,
+  _sub,
+  _mul,
+  _div,
+  _mod,
+  _open_bracket,
+  _close_bracket
 }
+
+abstract class ASTNode {
+  abstract String parse();
+  /*
+   * public static void main(String args[]){
+   * ASTNode s = new StringNode("hello world");
+   * stmt s1 = new ExitStmt(s);
+   * System.out.println(s1.parse());
+   * }
+   */
+}
+
 class IntNode extends ASTNode {
   String value;
+
   IntNode(String value) {
     this.value = value;
   }
+
   @Override
-  String parse(){
+  String parse() {
     return value;
   }
 }
-class StringNode extends ASTNode{
+
+class StringNode extends ASTNode {
   String value;
-  StringNode(String value){
+
+  StringNode(String value) {
     this.value = value;
   }
+
   @Override
-  String parse(){
-    return "\""+value+"\"";
-  } 
+  String parse() {
+    return "\"" + value + "\"";
+  }
 }
-class IdentifierNode extends ASTNode{
+
+class IdentifierNode extends ASTNode {
   String value;
-  IdentifierNode(String value){
+
+  IdentifierNode(String value) {
     this.value = value;
   }
+
   @Override
-  String parse(){
+  String parse() {
     return value;
   }
 }
-class BinOpNode extends ASTNode{
-  enum Operator{
-    add,sub,mul,div,mod
+
+class BinOpNode extends ASTNode {
+  enum Operator {
+    add, sub, mul, div, mod
   }
+
   Operator op;
   ASTNode left;
   ASTNode right;
-  BinOpNode(ASTNode left,Operator op,ASTNode right){
+
+  BinOpNode(ASTNode left, Operator op, ASTNode right) {
     this.left = left;
     this.right = right;
     this.op = op;
   }
+
   @Override
-  String parse(){
-    String OpStr="";
-    switch(op){
+  String parse() {
+    String OpStr = "";
+    switch (op) {
       case Operator.add:
-        OpStr="+";
-      break;
+        OpStr = "+";
+        break;
       case Operator.sub:
-        OpStr="-";
-      break;
+        OpStr = "-";
+        break;
       case Operator.mul:
-        OpStr="*";
-      break;
+        OpStr = "*";
+        break;
       case Operator.div:
-        OpStr="/";
-      break;
+        OpStr = "/";
+        break;
       case Operator.mod:
-        OpStr="%";
-      break;
+        OpStr = "%";
+        break;
       default:
-      System.exit(0);
+        System.exit(0);
     }
-    return left.parse()+OpStr+right.parse();
-  } 
+    return left.parse() + OpStr + right.parse();
+  }
 }
-abstract class stmt{
-  int index=0; 
+
+abstract class stmt {
+  int index = 0;
   public ArrayList<token> tokens;
+
   abstract String parse();
-  public void hardExpect(tokenType t){
-    if(tokens ==null ||index>=tokens.size()||tokens.get(index).type()!=t){
-      System.out.println("expected : "+t);
+
+  public void hardExpect(tokenType t) {
+    if (tokens == null || index >= tokens.size() ||
+        tokens.get(index).type() != t) {
+      System.out.println("expected : " + t);
       System.exit(0);
     }
     index++;
   }
-  public boolean expect(tokenType t){
-    if(index>=tokens.size()||tokens.get(index).type()!=t){
+
+  public boolean expect(tokenType t) {
+    if (index >= tokens.size() || tokens.get(index).type() != t) {
       return false;
     }
     return true;
   }
-  public void consume(){
+
+  public void consume() {
     index++;
   }
+
   abstract void build();
 }
-class PrintStmt extends stmt{
-  ASTNode expression;
-  PrintStmt(ArrayList<token> tokens){ 
+
+abstract class exprStmt extends stmt {
+  exprStmt expression;
+  ASTNode value;
+  ASTNode operator;
+
+  exprStmt(ArrayList<token> tokens) {
     this.tokens = tokens;
+    build();
   }
+
   @Override
-  String parse(){
-    return "println!("+expression.parse()+");\n";
+  String parse() {
+    return value.parse() + operator.parse() + expression.parse();
   }
-  void build(){
+
+  void build() {
+    if (expect(tokenType._int) || expect(tokenType._ident)) {
+      consume();
+      if (expect(tokenType._add) || expect(tokenType._sub) ||
+          expect(tokenType._mul) || expect(tokenType._div) ||
+          expect(tokenType._mod)) {
+        consume();
+      }
+    } else {
+      System.out.println("invalid expression");
+      System.exit(0);
+    }
+  }
+}
+
+class PrintStmt extends stmt {
+  ASTNode expression;
+
+  PrintStmt(ArrayList<token> tokens) {
+    this.tokens = tokens;
+    build();
+  }
+
+  @Override
+  String parse() {
+    return "println!(" + expression.parse() + ");\n";
+  }
+
+  void build() {
     System.out.println(tokens);
     hardExpect(tokenType._print);
     hardExpect(tokenType._open_bracket);
-    if(expect(tokenType._ident)){
+    if (expect(tokenType._ident)) {
       expression = new IdentifierNode(tokens.get(index).val());
-    }
-    else if(expect(tokenType._int)){
+    } else if (expect(tokenType._int)) {
       expression = new IntNode(tokens.get(index).val());
-    }
-    else if(expect(tokenType._string)){
+    } else if (expect(tokenType._string)) {
       expression = new StringNode(tokens.get(index).val());
-    }
-    else{
+    } else {
       System.out.println("invalid print stmt");
       System.exit(0);
     }
     consume();
     hardExpect(tokenType._close_bracket);
+    hardExpect(tokenType._semi_colon);
   }
 }
 
-class AssignStmt extends stmt{
+class AssignStmt extends stmt {
   IdentifierNode var;
   ASTNode value;
-  AssignStmt(ArrayList<token> tokens){
+
+  AssignStmt(ArrayList<token> tokens) {
+    // System.out.println(tokens);
     this.tokens = tokens;
+    build();
   }
+
   @Override
-  String parse(){
-    return "let mut "+var.parse()+" = "+value.parse()+";\n";
+  String parse() {
+    return "let mut " + var.parse() + " = " + value.parse() + ";\n";
   }
-  void build(){
-    if(expect(tokenType._type_int))
-    {
-      consume(); 
+
+  void build() {
+    if (expect(tokenType._type_int)) {
+      consume();
       var = new IdentifierNode(tokens.get(index).val());
       consume();
       hardExpect(tokenType._equal);
-      if(expect(tokenType._int)){
+      if (expect(tokenType._int)) {
         value = new IntNode(tokens.get(index).val());
-      }
-      else{
+      } else {
         System.out.println("invalid assignment");
         System.exit(0);
       }
-    }
-    else if(expect(tokenType._type_string)){
+    } else if (expect(tokenType._type_string)) {
       consume();
       var = new IdentifierNode(tokens.get(index).val());
-      if(expect(tokenType._string)){
+      if (expect(tokenType._string)) {
         value = new StringNode(tokens.get(index).val());
-      }
-      else{
+      } else {
         System.out.println("invalid assignment");
         System.exit(0);
       }
     }
     consume();
+    hardExpect(tokenType._semi_colon);
   }
-
-
 }
-class ExitStmt extends stmt{
-  ASTNode expression; 
-  ExitStmt(ArrayList<token> tokens){
+
+class ExitStmt extends stmt {
+  ASTNode expression;
+
+  ExitStmt(ArrayList<token> tokens) {
     this.tokens = tokens;
+    build();
   }
+
   @Override
-  String parse(){
-    return "std::process:exit("+expression.parse()+");\n";
+  String parse() {
+    return "mov rax, 60\nmov rdi, " + expression.parse() + "\nsyscall\n";
   }
-  void build(){ 
-    System.out.println("hello"+tokens);
+
+  void build() {
+    // System.out.println("hello"+tokens);
     hardExpect(tokenType._exit);
     hardExpect(tokenType._open_bracket);
-     if(expect(tokenType._ident)){
+    if (expect(tokenType._ident)) {
+      // System.out.println("hey i am here");
       expression = new IdentifierNode(tokens.get(index).val());
-    }
-    else if(expect(tokenType._int)){
+    } else if (expect(tokenType._int)) {
       expression = new IntNode(tokens.get(index).val());
-    } 
-    else{
+    } else {
       System.out.println("invalid exit stmt");
       System.exit(0);
     }
     consume();
     hardExpect(tokenType._close_bracket);
+    hardExpect(tokenType._semi_colon);
   }
 }
-/*
-class Program extends ASTNode{
+
+class Program extends ASTNode {
+  List<token> tokens;
   List<stmt> statements;
-  Program(List<stmt>statements){
-    this.statements=statements;
+  Program(List<token> tokens) {
+    this.tokens = tokens;
+    this.statements = new ArrayList<>();
+    build();
   }
+
   @Override
-  String parse(){
-    String output="";
-    for(int i = 0;i<statements.size();i++){
-      output+=statements.get(i).parse();
+  String parse() {
+    String output = "";
+    for (int i = 0; i < statements.size(); i++) {
+      output += statements.get(i).parse();
     }
     return output;
-  } 
-}
-*/
+  }
 
+  void build(){
+    int depth = 0 ;
+    int index = 0;
+    for(int i = 0;i<tokens.size();i++){
+      if(tokens.get(i).type()==tokenType._open_bracket){
+        depth++;
+      }
+      if(tokens.get(i).type()==tokenType._close_bracket){
+        depth--;
+      }
+      if(depth==0&&tokens.get(i).type()==tokenType._semi_colon){
+        //statements.add(new stmt(tokens.subList(index, i)));
+        System.out.println(tokens.subList(index, i+1));
+        switch(tokens.get(index).type()){
+          case tokenType._print:
+            statements.add(new PrintStmt(new ArrayList<>(tokens.subList(index, i+1))));
+            break;
+          case tokenType._exit:
+            statements.add(new ExitStmt(new ArrayList<>(tokens.subList(index, i+1))));
+            break;
+          case tokenType._type_int:
+            statements.add(new AssignStmt(new ArrayList<>(tokens.subList(index, i+1))));
+            break;
+        } 
+        index = i+1;
+      }
+    }
+  }
+}
