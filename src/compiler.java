@@ -6,19 +6,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Stack;
 
-class transpiler {
+class compiler {
   String data;
   int index;
   ArrayList<token> tokens;
 
   public static void main(String args[]) throws IOException {
-    transpiler inst = new transpiler();
+    compiler inst = new compiler();
     System.out.println(inst.readFile("test.tl"));
     // System.out.println(inst.tokenize(inst.readFile("test.tl")));
     //exprStmt a = new exprStmt(inst.tokenize(inst.readFile("test.tl")), new HashMap<>());
     //System.out.println(a.parse(new HashMap<>()));
      Program a = new Program(inst.tokenize(inst.readFile("test.tl")));
-     System.out.println(a.parse(a.symboltable));
+     inst.write(a.parse(a.symboltable));
     // a.build();
     // System.out.println(a.parse(a.symboltable));
   }
@@ -26,7 +26,7 @@ class transpiler {
   // FILE
   // WRITER..................................................................................................
   void write(String content) throws IOException {
-    FileWriter fw = new FileWriter("output.rs");
+    FileWriter fw = new FileWriter("output.asm",false);
     fw.write(content);
     fw.close();
   }
@@ -267,8 +267,8 @@ class exprStmt extends stmt {
             8 * (symboltable.size() -
                 symboltable.get(tokens.get(index).val()))
             +
-            "]\n";
-        output += "push rax\n";
+            "]\npush rax\n";
+        //output += "push rax\n";
       } else {
         switch (tokens.get(index).type()) {
           case tokenType._add:
@@ -288,7 +288,7 @@ class exprStmt extends stmt {
             op--;
             break;
           case tokenType._mod:
-            output = "pop rcx\npop rax\nxor rdx, rdx\ndiv rc\npush rcx\n";
+            output += "pop rcx\npop rax\nxor rdx, rdx\ndiv rcx\npush rdx\n";
             op--;
             break;
           default:
@@ -424,7 +424,7 @@ class AssignStmt extends stmt {
   @Override
   String parse() {
     if (tokens.get(0).type() == tokenType._type_int)
-      return expr.parse();
+      return expr.parse()+"pop rax\nmov rax,"+var.parse(symboltable);
     else
       return "String logic idk";
   }
@@ -440,14 +440,8 @@ class AssignStmt extends stmt {
       }
       consume();
       hardExpect(tokenType._equal);
-      if (expect(tokenType._int)||expect(tokenType._ident)) {//should add ident too
-        System.out.println("symbol table of assign: "+symboltable);
-        expr = new exprStmt(nextSemiColon(),symboltable);
-        symboltable.put(var.value, symboltable.size() + 1);//update all values simultaneosly in the future
-      } else {
-        System.out.println("invalid integer assignment");
-        System.exit(0);
-      }
+      expr = new exprStmt(nextSemiColon(), symboltable);
+      symboltable.put(var.value,symboltable.size()+1);
     } else if (expect(
         tokenType._type_string)) { // symbol table to be implemented
       consume();
@@ -499,7 +493,7 @@ class Program extends ASTNode {
 
   @Override
   String parse(HashMap<String, Integer> symboltable) {
-    String output = "";
+    String output = "global _start\n_start:\n";
     for (int i = 0; i < statements.size(); i++) {
       output += statements.get(i).parse();
     }
