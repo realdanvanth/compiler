@@ -1,10 +1,11 @@
-import java.beans.Expression;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Stack;
+
 class transpiler {
   String data;
   int index;
@@ -14,10 +15,12 @@ class transpiler {
     transpiler inst = new transpiler();
     System.out.println(inst.readFile("test.tl"));
     // System.out.println(inst.tokenize(inst.readFile("test.tl")));
-    exprStmt a = new exprStmt(inst.tokenize(inst.readFile("test.tl")));
-    System.out.println(a.parse(new HashMap<>()));
+    //exprStmt a = new exprStmt(inst.tokenize(inst.readFile("test.tl")), new HashMap<>());
+    //System.out.println(a.parse(new HashMap<>()));
+     Program a = new Program(inst.tokenize(inst.readFile("test.tl")));
+     System.out.println(a.parse(a.symboltable));
     // a.build();
-    //System.out.println(a.parse(a.symboltable));
+    // System.out.println(a.parse(a.symboltable));
   }
 
   // FILE
@@ -115,7 +118,6 @@ class transpiler {
     // System.out.println(tokens);
     return tokens;
   }
-  // ............................................................................................................
   // .............................................................................................................
 }
 
@@ -143,7 +145,7 @@ enum tokenType {
 }
 
 abstract class ASTNode {
-  abstract String parse(HashMap<String,Integer> symboltable);
+  abstract String parse(HashMap<String, Integer> symboltable);
   /*
    * public static void main(String args[]){
    * ASTNode s = new StringNode("hello world");
@@ -161,7 +163,7 @@ class IntNode extends ASTNode {
   }
 
   @Override
-  String parse(HashMap<String,Integer> symboltable) {
+  String parse(HashMap<String, Integer> symboltable) {
     return value;
   }
 }
@@ -174,62 +176,23 @@ class StringNode extends ASTNode {
   }
 
   @Override
-  String parse(HashMap<String,Integer> symboltable) {
+  String parse(HashMap<String, Integer> symboltable) {
     return "\"" + value + "\"";
   }
 }
 
 class IdentifierNode extends ASTNode {
   String value;
+
   IdentifierNode(String value) {
     this.value = value;
   }
 
   @Override
-  String parse(HashMap<String,Integer> symboltable) {
-    return "[rsp+"+8*(symboltable.size()-symboltable.get(value))+"]";//should be implemented for string values 
-    //return value;
-  }
-}
-
-class BinOpNode extends ASTNode {
-  enum Operator {
-    add, sub, mul, div, mod
-  }
-
-  Operator op;
-  ASTNode left;
-  ASTNode right;
-
-  BinOpNode(ASTNode left, Operator op, ASTNode right) {
-    this.left = left;
-    this.right = right;
-    this.op = op;
-  }
-
-  @Override
-  String parse(HashMap<String,Integer> symboltable) {
-    String OpStr = "";
-    switch (op) {
-      case Operator.add:
-        OpStr = "+";
-        break;
-      case Operator.sub:
-        OpStr = "-";
-        break;
-      case Operator.mul:
-        OpStr = "*";
-        break;
-      case Operator.div:
-        OpStr = "/";
-        break;
-      case Operator.mod:
-        OpStr = "%";
-        break;
-      default:
-        System.exit(0);
-    }
-    return left.parse(symboltable) + OpStr + right.parse(symboltable);
+  String parse(HashMap<String, Integer> symboltable) {
+    return "[rsp+" + 8 * (symboltable.size() - symboltable.get(value)) +
+        "]\n"; // should be implemented for string values
+    // return value;
   }
 }
 
@@ -237,7 +200,7 @@ abstract class stmt {
   int index = 0;
   public ArrayList<token> tokens;
 
-  abstract String parse(HashMap<String,Integer> symboltable);
+  abstract String parse();
 
   public void hardExpect(tokenType t) {
     if (tokens == null || index >= tokens.size() ||
@@ -255,6 +218,16 @@ abstract class stmt {
     return true;
   }
 
+  public ArrayList<token> nextSemiColon(){
+    ArrayList <token> output = new ArrayList<>();
+    while(index<tokens.size()&&tokens.get(index).type()!=tokenType._semi_colon){
+      output.add(tokens.get(index));
+      consume();
+    }
+    //hardExpect(tokenType._semi_colon);
+    return output;
+  }
+
   public void consume() {
     index++;
   }
@@ -265,51 +238,57 @@ abstract class stmt {
 class exprStmt extends stmt {
   ASTNode value;
   ASTNode operator;
+  HashMap<String, Integer> symboltable;
 
-  exprStmt(ArrayList<token> tokens) {
+  exprStmt(ArrayList<token> tokens, HashMap<String, Integer> symboltable) {
     this.tokens = tokens;
+    this.symboltable = symboltable;
+    //System.out.println(tokens);
+    System.out.println("Symboltable of expr : "+symboltable);
     build();
   }
 
   @Override
-  String parse(HashMap<String,Integer> symboltable) {
+  String parse() { // alaways use pop after parsing Expression
     int op = 0;
-    String output = ""; 
-    while(index<tokens.size()){
-      if(expect(tokenType._int))
-      {
+    String output = "";
+    //System.out.println("OUTPUT :::" + tokens);
+    while (index < tokens.size()) {
+      if (expect(tokenType._int)) {
         op++;
-        output+="push "+tokens.get(index).val()+"\n";
-      }
-      else if(expect(tokenType._ident)){
+        output += "push " + tokens.get(index).val() + "\n";
+      } else if (expect(tokenType._ident)) {
         op++;
-        if(!symboltable.containsKey(tokens.get(index).val())){
+        if (!symboltable.containsKey(tokens.get(index).val())) {
           System.out.println("invalid Indentifier");
           System.exit(0);
         }
-        output+="mov rax, "+8*(symboltable.size()-symboltable.get(tokens.get(index).val()))+"]";
-        output+="push rax";
-      }
-      else{
-        switch(tokens.get(index).type()){
+        output += "mov rax, [rsp+" +
+            8 * (symboltable.size() -
+                symboltable.get(tokens.get(index).val()))
+            +
+            "]\n";
+        output += "push rax\n";
+      } else {
+        switch (tokens.get(index).type()) {
           case tokenType._add:
-            output+="pop rax\npop rbx\nadd rax, rbx\npush rax\n";
+            output += "pop rax\npop rbx\nadd rax, rbx\npush rax\n";
             op--;
             break;
           case tokenType._mul:
-            output+="pop rax\npop rbx\nimul rax, rbx\npush rax\n";
+            output += "pop rax\npop rbx\nimul rax, rbx\npush rax\n";
             op--;
             break;
           case tokenType._sub:
-            output+="pop rax\npop rbx\nsub rbx, rax\npush rbx\n";
+            output += "pop rax\npop rbx\nsub rbx, rax\npush rbx\n";
             op--;
             break;
           case tokenType._div:
-            output+="pop rcx\npop rax\nxor rdx, rdx\ndiv rcx\npush rax\n";
+            output += "pop rcx\npop rax\nxor rdx, rdx\ndiv rcx\npush rax\n";
             op--;
             break;
           case tokenType._mod:
-            output="pop rcx\npop rax\nxor rdx, rdx\ndiv rc\npush rcx";
+            output = "pop rcx\npop rax\nxor rdx, rdx\ndiv rc\npush rcx\n";
             op--;
             break;
           default:
@@ -317,18 +296,85 @@ class exprStmt extends stmt {
             System.exit(0);
         }
       }
-      consume(); 
+      consume();
     }
-    if(op!=1){
+    //System.out.println(output);
+    if (op != 1) {
+      System.out.println(output);
       System.out.println("Expression error");
     }
     return output;
   }
 
   void build() {
-    //System.out.println("hello world");
+    // System.out.println("hello world");
+    ArrayList<token> output = new ArrayList<>();
+    Stack<token> stack = new Stack<>();
+    int depth = 0;
+    while (index < tokens.size()) {
+      if (expect(tokenType._int)) {
+        output.add(tokens.get(index));
+      } else if (expect(tokenType._ident)) {
+        if (!symboltable.containsKey(tokens.get(index).val())) {
+          System.out.println(tokens.get(index).val());
+          //System.out.println(symboltable);
+          System.out.println("invalid Indentifier nigga");
+          System.exit(0);
+        }
+        output.add(tokens.get(index));
+      } else {
+        switch (tokens.get(index).type()) {
+          case tokenType._open_bracket:
+            stack.push(tokens.get(index));
+            break;
+          case tokenType._close_bracket:
+            while (!stack.isEmpty() &&
+                stack.peek().type() != tokenType._open_bracket) {
+              output.add(stack.pop());
+            }
+            if (stack.isEmpty()) {
+              System.out.println("NAH BRUH WRONG BRACKET");
+              System.exit(0);
+            }
+            stack.pop();
+            break;
+          case tokenType._div:
+          case tokenType._mul:
+          case tokenType._mod:
+            stack.push(tokens.get(index));
+            break;
+          case tokenType._add:
+            while (!stack.isEmpty() && (stack.peek().type() == tokenType._mod ||
+                stack.peek().type() == tokenType._div ||
+                stack.peek().type() == tokenType._mul||stack.peek().type()==tokenType._add)) {
+              output.add(stack.pop());
+            }
+            stack.push(tokens.get(index));
+            break;
+          case tokenType._sub:
+            while (!stack.isEmpty() && (stack.peek().type() == tokenType._mod ||
+                stack.peek().type() == tokenType._div ||
+                stack.peek().type() == tokenType._mul ||
+                stack.peek().type() == tokenType._add||stack.peek().type()==tokenType._sub)) {
+              output.add(stack.pop());
+            }
+            stack.push(tokens.get(index));
+            break;
+        }
+      }
+      consume();
+    }
+    while(!stack.isEmpty()){
+      output.add(stack.pop());
+    }
+    //System.out.println("WHAT THE HELL :::: "+output);
+    //tokens.clear();
+    //tokens.addAll(output);
+    index = 0;
+    tokens = output;
   }
 }
+
 class PrintStmt extends stmt {
   ASTNode expression;
 
@@ -338,12 +384,12 @@ class PrintStmt extends stmt {
   }
 
   @Override
-  String parse(HashMap<String,Integer> symboltable) {
-    return "println!(" + expression.parse(symboltable) + ");\n";
+  String parse() {
+    return "println!(" + ");\n";
   }
 
   void build() {
-    System.out.println(tokens);
+    //System.out.println(tokens);
     hardExpect(tokenType._print);
     hardExpect(tokenType._open_bracket);
     if (expect(tokenType._ident)) {
@@ -364,21 +410,21 @@ class PrintStmt extends stmt {
 
 class AssignStmt extends stmt {
   IdentifierNode var;
-  ASTNode value;
+  exprStmt expr;
   HashMap<String, Integer> symboltable;
 
-  AssignStmt(ArrayList<token> tokens, HashMap<String, Integer> symboltable) {
+  AssignStmt(ArrayList<token> tokens,HashMap<String, Integer> symboltable) {
     // System.out.println(tokens);
     this.tokens = tokens;
     this.symboltable = symboltable;
-    System.out.println(tokens);
+    //System.out.println(tokens);
     build();
   }
 
   @Override
-  String parse(HashMap<String,Integer> symboltable) {
+  String parse() {
     if (tokens.get(0).type() == tokenType._type_int)
-      return "push "+value.parse(symboltable)+"\n";
+      return expr.parse();
     else
       return "String logic idk";
   }
@@ -388,60 +434,54 @@ class AssignStmt extends stmt {
       consume();
       if (!symboltable.containsKey(tokens.get(index).val()))
         var = new IdentifierNode(tokens.get(index).val());
-      else
+      else {
         System.out.println("Indentifier already in use");
-      consume();
-      hardExpect(tokenType._equal);
-      if (expect(tokenType._int)) {
-        value = new IntNode(tokens.get(index).val());
-        symboltable.put(var.value,symboltable.size()+1);
-      } else {
-        System.out.println("invalid assignment");
         System.exit(0);
       }
-    } else if (expect(tokenType._type_string)) { // symbol table to be implemented
+      consume();
+      hardExpect(tokenType._equal);
+      if (expect(tokenType._int)||expect(tokenType._ident)) {//should add ident too
+        System.out.println("symbol table of assign: "+symboltable);
+        expr = new exprStmt(nextSemiColon(),symboltable);
+        symboltable.put(var.value, symboltable.size() + 1);//update all values simultaneosly in the future
+      } else {
+        System.out.println("invalid integer assignment");
+        System.exit(0);
+      }
+    } else if (expect(
+        tokenType._type_string)) { // symbol table to be implemented
       consume();
       var = new IdentifierNode(tokens.get(index).val());
       if (expect(tokenType._string)) {
-        value = new StringNode(tokens.get(index).val());
+        StringNode val = new StringNode(tokens.get(index).val());
       } else {
         System.out.println("invalid assignment");
         System.exit(0);
       }
     }
-    consume();
+    //consume();
     hardExpect(tokenType._semi_colon);
   }
 }
 
 class ExitStmt extends stmt {
-  ASTNode expression;
-
-  ExitStmt(ArrayList<token> tokens) {
+  exprStmt expr;
+  HashMap<String,Integer> symboltable = new HashMap<>();
+  ExitStmt(ArrayList<token> tokens, HashMap<String,Integer> symboltable) {
     this.tokens = tokens;
+    this.symboltable = symboltable;
     build();
   }
 
   @Override
-  String parse(HashMap<String,Integer> symboltable) {
-    return "mov rax, 60\nmov rdi, " + expression.parse(symboltable) + "\nsyscall\n";
+  String parse() {
+    return expr.parse()+"pop rdi\nmov rax, 60\nsyscall\n";
   }
 
   void build() {
     // System.out.println("hello"+tokens);
     hardExpect(tokenType._exit);
-    hardExpect(tokenType._open_bracket);
-    if (expect(tokenType._ident)) {
-      // System.out.println("hey i am here");
-      expression = new IdentifierNode(tokens.get(index).val());
-    } else if (expect(tokenType._int)) {
-      expression = new IntNode(tokens.get(index).val());
-    } else {
-      System.out.println("invalid exit stmt");
-      System.exit(0);
-    }
-    consume();
-    hardExpect(tokenType._close_bracket);
+    expr = new exprStmt(nextSemiColon(),symboltable);
     hardExpect(tokenType._semi_colon);
   }
 }
@@ -458,10 +498,10 @@ class Program extends ASTNode {
   }
 
   @Override
-  String parse(HashMap<String,Integer> symboltable) {
+  String parse(HashMap<String, Integer> symboltable) {
     String output = "";
     for (int i = 0; i < statements.size(); i++) {
-      output += statements.get(i).parse(symboltable);
+      output += statements.get(i).parse();
     }
     return output;
   }
@@ -478,23 +518,29 @@ class Program extends ASTNode {
       }
       if (depth == 0 && tokens.get(i).type() == tokenType._semi_colon) {
         // statements.add(new stmt(tokens.subList(index, i)));
-        //System.out.println(tokens.subList(index, i + 1));
+        // System.out.println(tokens.subList(index, i + 1));
         switch (tokens.get(index).type()) {
           case tokenType._print:
             statements.add(
                 new PrintStmt(new ArrayList<>(tokens.subList(index, i + 1))));
             break;
           case tokenType._exit:
+            System.out.println("over here"+symboltable);
             statements.add(
-                new ExitStmt(new ArrayList<>(tokens.subList(index, i + 1))));
+                new ExitStmt(new ArrayList<>(tokens.subList(index, i + 1)),symboltable));
             break;
           case tokenType._type_int:
             statements.add(new AssignStmt(
                 new ArrayList<>(tokens.subList(index, i + 1)), symboltable));
             break;
+          default:
+            System.out.println("Syntax error");
+            System.exit(0);
+            break;
         }
         index = i + 1;
       }
+      //System.out.println(symboltable);
     }
     System.out.println(symboltable);
   }
