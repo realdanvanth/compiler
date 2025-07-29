@@ -13,12 +13,12 @@ class compiler {
 
   public static void main(String args[]) throws IOException {
     compiler inst = new compiler();
-    System.out.println(inst.readFile("test.tl"));
+    //System.out.println(inst.readFile("test.tl"));
     // System.out.println(inst.tokenize(inst.readFile("test.tl")));
     // exprStmt a = new exprStmt(inst.tokenize(inst.readFile("test.tl")), new
     // HashMap<>()); System.out.println(a.parse(new HashMap<>()));
     Program a = new Program(inst.tokenize(inst.readFile("test.tl")));
-    System.out.println(a.parse(a.symboltable));
+    //System.out.println(a.parse(a.symboltable));
     inst.write(a.parse(a.symboltable));
     // a.build();
     // System.out.println(a.parse(a.symboltable));
@@ -27,7 +27,7 @@ class compiler {
   // FILE
   // WRITER..................................................................................................
   void write(String content) throws IOException {
-    FileWriter fw = new FileWriter("output.rs", false);
+    FileWriter fw = new FileWriter("output.asm", false);
     fw.write(content);
     fw.close();
   }
@@ -247,7 +247,7 @@ class exprStmt extends stmt {
     this.tokens = tokens;
     this.symboltable = symboltable;
     // System.out.println(tokens);
-    System.out.println("Symboltable of expr : " + symboltable);
+    //System.out.println("Symboltable of expr : " + symboltable);
     build();
   }
 
@@ -255,8 +255,8 @@ class exprStmt extends stmt {
   String parse() { // alaways use pop after parsing Expression
     int op = 0;
     String output = "";
-    System.out.println(tokens);
-    System.out.println("INDEX: "+index);
+    //System.out.println(tokens);
+    //System.out.println("INDEX: "+index);
     index = 0;
     // System.out.println("OUTPUT :::" + tokens);
     while (index < tokens.size()) {
@@ -549,6 +549,6 @@ class Program extends ASTNode {
       }
       // System.out.println(symboltable);
     }
-    System.out.println(symboltable);
+    //System.out.println(symboltable);
   }
 }
