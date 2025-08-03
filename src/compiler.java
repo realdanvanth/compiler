@@ -6,26 +6,29 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Stack;
 
-class compiler{
+class compiler {
   String data;
   ArrayList<token> tokens;
+
   public static void main(String args[]) throws IOException {
     compiler inst = new compiler();
     inst.readFile("test.tl");
     inst.tokenize();
     Program a = new Program(inst.tokens);
-    //booleanStmt a = new booleanStmt(inst.tokens, new HashMap<>());
-    //inst.write(a.parse());
-    //System.out.println(a.tokens);
+    // booleanStmt a = new booleanStmt(inst.tokens, new HashMap<>());
+    // inst.write(a.parse());
+    // System.out.println(a.tokens);
     inst.write(a.parse(a.symboltable));
-    //System.out.println(a.parse(a.symboltable));
+    // System.out.println(a.parse(a.symboltable));
   }
-   void write(String data) throws IOException {
+
+  void write(String data) throws IOException {
     FileWriter fw = new FileWriter("output.asm", false);
     fw.write(data);
     fw.close();
   }
-   public void readFile(String path) throws IOException {
+
+  public void readFile(String path) throws IOException {
     String data = "";
     FileReader fr = new FileReader(path);
     char buffer[] = new char[1024];
@@ -35,14 +38,14 @@ class compiler{
       n = fr.read(buffer);
     }
     fr.close();
-    this.data=data;
-    if(data==null)
-      {
-        System.out.println("Nothing Present in File");
-        System.exit(0);
-      }
+    this.data = data;
+    if (data == null) {
+      System.out.println("Nothing Present in File");
+      System.exit(0);
+    }
   }
-   public void tokenize() {
+
+  public void tokenize() {
     ArrayList<token> tokens = new ArrayList<token>();
     for (int i = 0; i < data.length(); i++) {
       if (Character.isLetter(data.charAt(i))) { // variables
@@ -133,10 +136,11 @@ class compiler{
         System.out.println("Lexing Error");
       }
     }
-    this.tokens = tokens; 
+    this.tokens = tokens;
   }
 }
-//...............................................................................................................
+
+// ...............................................................................................................
 record token(tokenType type, String val) {
 }
 
@@ -168,7 +172,8 @@ enum tokenType {
   _greater_than,
   _less_than
 }
-//...............................................................................................................
+
+// ...............................................................................................................
 abstract class Stmt {
   int index = 0;
   HashMap<String, Integer> symboltable;
@@ -204,13 +209,12 @@ abstract class Stmt {
 
   public int isValidtoUse(token ident, tokenType t,
       HashMap<String, Integer> symboltable) {
-    if(!expect(tokenType._ident))
-    {
+    if (!expect(tokenType._ident)) {
       System.out.println("Identifier expected ");
       System.exit(0);
     }
     // System.exit(0);
-    //System.out.println(symboltable);
+    // System.out.println(symboltable);
     if (!(symboltable.containsKey("1" + ident.val()) ||
         symboltable.containsKey("2" + ident.val()) ||
         symboltable.containsKey("3" + ident.val()))) {
@@ -232,9 +236,9 @@ abstract class Stmt {
     if (symboltable.containsKey(check + ident.val())) {
       return symboltable.get(check + ident.val());
     }
-    System.out.println("use the correct type " + check + ident);
-    System.exit(0);
-    return -999;
+    // System.out.println("use the correct type " + check + ident);
+    // System.exit(0);
+    return 0;
   }
 
   public void addident(token ident, tokenType t,
@@ -265,7 +269,8 @@ abstract class Stmt {
 
   abstract void build();
 }
-//...............................................................................................................
+
+// ...............................................................................................................
 class exprStmt extends Stmt {
   HashMap<String, Integer> symboltable;
 
@@ -279,15 +284,19 @@ class exprStmt extends Stmt {
   String parse() { // alaways use pop after parsing Expression
     int op = 0;
     String output = "";
-    index = 0; 
+    index = 0;
     while (index < tokens.size()) {
       if (expect(tokenType._int)) {
         op++;
         output += "push " + tokens.get(index).val() + "\n";
-      } else if (expect(tokenType._ident)) { 
+      } else if (expect(tokenType._ident)) {
         int addr = isValidtoUse(tokens.get(index), tokenType._int, symboltable);
+        if (addr == 0) {
+          System.out.println("use correct type");
+          System.exit(0);
+        }
         output += "mov rax, [rbp " + addr + "]\npush rax\n";
-        op++; 
+        op++;
       } else {
         switch (tokens.get(index).type()) {
           case tokenType._add:
@@ -316,7 +325,7 @@ class exprStmt extends Stmt {
         }
       }
       consume();
-    } 
+    }
     if (op != 1) {
       System.out.println(output);
       System.out.println("Expression error");
@@ -326,15 +335,15 @@ class exprStmt extends Stmt {
   }
 
   void build() { // another method to check if its a valid expression to be
-                 // added 
+                 // added
     ArrayList<token> output = new ArrayList<>();
-    Stack<token> stack = new Stack<>(); 
+    Stack<token> stack = new Stack<>();
     while (index < tokens.size()) {
       if (expect(tokenType._int)) {
         output.add(tokens.get(index));
       } else if (expect(tokenType._ident)) {
         if (!symboltable.containsKey("1" + tokens.get(index).val())) {
-          System.out.println(tokens.get(index).val() + "does not exist "); 
+          System.out.println(tokens.get(index).val() + "does not exist ");
           System.exit(0);
         }
         output.add(tokens.get(index));
@@ -347,7 +356,7 @@ class exprStmt extends Stmt {
             while (!stack.isEmpty() &&
                 stack.peek().type() != tokenType._open_bracket) {
               output.add(stack.pop());
-        }
+            }
             if (stack.isEmpty()) {
               System.out.println("Invalid Usage of brackets");
               System.exit(0);
@@ -395,7 +404,8 @@ class exprStmt extends Stmt {
     tokens = output;
   }
 }
-//...............................................................................................................
+
+// ...............................................................................................................
 class exitStmt extends Stmt {
   Stmt expr;
   HashMap<String, Integer> symboltable = new HashMap<>();
@@ -418,7 +428,8 @@ class exitStmt extends Stmt {
     hardExpect(tokenType._semi_colon);
   }
 }
-//...............................................................................................................
+
+// ...............................................................................................................
 class booleanStmt extends Stmt {
   HashMap<String, Integer> symboltable;
 
@@ -434,12 +445,17 @@ class booleanStmt extends Stmt {
     String output = "";
     index = 0;
     while (index < tokens.size()) {
-      if (expect(tokenType._boolean)) {
+      if (expect(tokenType._boolean) || expect(tokenType._int)) {
         op++;
         output += "push " + tokens.get(index).val() + "\n";
       } else if (expect(tokenType._ident)) {
-        int addr = isValidtoUse(tokens.get(index), tokenType._boolean, symboltable);
-        output += "mov rax, [rbp " + addr + "]\npush rax\n";
+        int addr = isValidtoUse(tokens.get(index), tokenType._int, symboltable);
+        int addr1 = isValidtoUse(tokens.get(index), tokenType._boolean, symboltable);
+        if (addr == addr1) {
+          System.out.println("Use correct type");
+          System.exit(0);
+        }
+        output += "mov rax, [rbp " + (addr+addr1) + "]\npush rax\n";
         op++;
       } else if (expect(tokenType._not)) {
         output += "pop rax\ntest rax, rax\nsete al\nmovzx rax,al\npush rax\n";
@@ -447,25 +463,22 @@ class booleanStmt extends Stmt {
         output += "pop rax\npop rbx\n";
         switch (tokens.get(index).type()) {
           case tokenType._and:
-            output += "and rax, rbx\ntest rax, rax\nsetne al\nmovzx rax, al\n";
+            output += "and rax, rbx\nsetne al\nmovzx rax, al\n";
             break;
           case tokenType._or:
-            output += "or rax, rbx\ntest rax, rax\nsetne al\nmovzx rax, al\n";
-            break;
-          case tokenType._equal:
-            output += "cmp rax, rbx\nmov rax , 0\nsete al\nmovzx rax, al\n";
-            break;
-          case tokenType._greater_than:
-            output += "cmp rax, rbx\nmov rax, 0\nsetg al\nmovzx rax,al\n";
-            break;
-          case tokenType._less_than:
-            output += "cmp rax,rbx\nmov rax, 0\nsetl al\nmovzx rax, al\n";
+            output += "or rax, rbx\nsetne al\nmovzx rax, al\n";
             break;
           case tokenType._equal_to:
-            output+="cmp rax, rbx\nmov rax, 0\nsete al\nmovzx rax,al\n";
+            output += "cmp rax, rbx\nsete al\nmovzx rax, al\n";
+            break;
+          case tokenType._greater_than:
+            output += "cmp rbx, rax\nsetg al\nmovzx rax,al\n";
+            break;
+          case tokenType._less_than:
+            output += "cmp rbx,rax\nsetl al\nmovzx rax, al\n";
             break;
           default:
-            System.out.println("Invalid boolean");
+            System.out.println("Invalid");
             System.out.println(tokens.get(index));
             System.exit(0);
             break;
@@ -475,31 +488,31 @@ class booleanStmt extends Stmt {
       }
       consume();
     }
-    if(op!=1){
+    if (op != 1) {
       System.out.println("Invalid boolean ");
       System.exit(0);
     }
     return output;
   }
 
-  void build() { 
+  void build() {
     ArrayList<token> output = new ArrayList<>();
     Stack<token> stack = new Stack<>();
     while (index < tokens.size()) {
-      //System.out.println("Stack "+ stack + " output "+output);
-      if (expect(tokenType._boolean)) {
+      // System.out.println("Stack "+ stack + " output "+output);
+      if (expect(tokenType._boolean) || expect(tokenType._int)) {
         output.add(tokens.get(index));
       } else if (expect(tokenType._ident)) {
-         if (!symboltable.containsKey("2" + tokens.get(index).val())) {
-          System.out.println("2"+tokens.get(index).val() + "does not exist here  "); 
+        if (!symboltable.containsKey("2" + tokens.get(index).val()) &&
+            !symboltable.containsKey("1" + tokens.get(index).val())) {
+          System.out.println("2" + tokens.get(index).val() + "does not exist");
           System.out.println(symboltable);
           System.exit(0);
         }
         output.add(tokens.get(index));
       } else if (expect(tokenType._not)) {
         stack.add(tokens.get(index));
-      }
-      else{
+      } else {
         switch (tokens.get(index).type()) {
           case tokenType._open_bracket:
             stack.push(tokens.get(index));
@@ -520,68 +533,73 @@ class booleanStmt extends Stmt {
           case tokenType._equal_to:
           case tokenType._less_than:
           case tokenType._greater_than:
-            while(!stack.isEmpty()&&stack.peek().type()!=tokenType._open_bracket)
+            while (!stack.isEmpty() &&
+                stack.peek().type() != tokenType._open_bracket)
               output.add(stack.pop());
             stack.add(tokens.get(index));
             break;
-            default:
+          default:
             break;
         }
       }
       consume();
     }
-    if(!stack.isEmpty())
-    output.add(stack.pop());
+    if (!stack.isEmpty())
+      output.add(stack.pop());
     index = 0;
-    //System.out.println(output);
+    // System.out.println(output);
     tokens = output;
   }
 }
-//...............................................................................................................
-class assignStmt extends Stmt { 
+
+// ...............................................................................................................
+class assignStmt extends Stmt {
   Stmt expr;
   HashMap<String, Integer> symboltable;
   String var;
+
   assignStmt(ArrayList<token> tokens, HashMap<String, Integer> symboltable) {
     // System.out.println(tokens);
     this.tokens = tokens;
     this.symboltable = symboltable;
-    this.var = ""; 
+    this.var = "";
     build();
   }
 
   @Override
   String parse() {
-    return expr.parse()+"pop rax\nmov [rbp"+(symboltable.get(var))+"], rax\n";
+    return expr.parse() + "pop rax\nmov [rbp" + (symboltable.get(var)) +
+        "], rax\n";
   }
 
-  void build() { 
+  void build() {
     if (expect(tokenType._type_int)) {
       consume();
-      //hardExpect(tokenType._ident);
+      // hardExpect(tokenType._ident);
       addident(tokens.get(index), tokenType._int, symboltable);
-      var = "1"+tokens.get(index).val();
+      var = "1" + tokens.get(index).val();
       consume();
       hardExpect(tokenType._equal);
       expr = new exprStmt(nextSemiColon(), symboltable);
     } else if (expect(tokenType._type_boolean)) {
       consume();
       addident(tokens.get(index), tokenType._boolean, symboltable);
-      var = "2"+tokens.get(index).val();  
+      var = "2" + tokens.get(index).val();
       consume();
       hardExpect(tokenType._equal);
       expr = new booleanStmt(nextSemiColon(), symboltable);
-      //System.out.println(expr.parse());
+      // System.out.println(expr.parse());
     } else if (expect(
         tokenType._type_string)) { // symbol table to be implemented
       consume();
-      var = "3"+tokens.get(index).val();//to be filled out in the future
+      var = "3" + tokens.get(index).val(); // to be filled out in the future
     }
     // consume();
     hardExpect(tokenType._semi_colon);
   }
 }
-//...............................................................................................................
+
+// ...............................................................................................................
 class Program {
   List<token> tokens;
   List<Stmt> statements;
@@ -592,7 +610,8 @@ class Program {
     this.tokens = tokens;
     this.statements = new ArrayList<>();
     build();
-  } 
+  }
+
   String parse(HashMap<String, Integer> symboltable) {
     String output = "global _start\n_start:\npush rbp\nmov rbp, rsp\nsub rsp," + rsp + "\n";
     for (int i = 0; i < statements.size(); i++) {
@@ -616,10 +635,12 @@ class Program {
         // statements.add(new stmt(tokens.subList(index, i)));
         // System.out.println(tokens.subList(index, i + 1));
         switch (tokens.get(index).type()) {
-          /*case tokenType._print:
-            statements.add(
-                new PrintStmt(new ArrayList<>(tokens.subList(index, i + 1))));
-            break;*/
+          /*
+           * case tokenType._print:
+           * statements.add(
+           * new PrintStmt(new ArrayList<>(tokens.subList(index, i + 1))));
+           * break;
+           */
           case tokenType._exit:
             // System.out.println("over here" + symboltable);
             exitStmt exitstmt = new exitStmt(new ArrayList<>(tokens.subList(index, i + 1)),
@@ -629,9 +650,9 @@ class Program {
             break;
           case tokenType._type_int:
           case tokenType._type_boolean:
-            //System.out.println("HELLO THEE");
+            // System.out.println("HELLO THEE");
             assignStmt assignstmt = new assignStmt(new ArrayList<>(tokens.subList(index, i + 1)),
-                new HashMap<>(symboltable)); 
+                new HashMap<>(symboltable));
             statements.add(assignstmt);
             rsp += 8;
             symboltable.putAll(assignstmt.symboltable);
@@ -645,6 +666,6 @@ class Program {
       }
       // System.out.println(symboltable);
     }
-    //System.out.println(symboltable);
+    // System.out.println(symboltable);
   }
 }
