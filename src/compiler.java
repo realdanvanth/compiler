@@ -215,7 +215,10 @@ abstract class Stmt {
     ArrayList<token> output = new ArrayList<>();
     int cdepth = 0;// gotta change this  for use the depth and shit
     int sdepth = 0;
-    while (index < tokens.size() &&tokens.get(index).type() != t&&cdepth == 0&&sdepth==0) {
+    while (index < tokens.size()) {
+      if(tokens.get(index).type()==t&&cdepth==0&&sdepth==0){
+        break;
+      }
        if (expect(tokenType._open_bracket)) {
         sdepth++;
       } else if (expect(tokenType._close_bracket)) {
@@ -228,6 +231,7 @@ abstract class Stmt {
       output.add(tokens.get(index));
       consume();
     }
+    //System.out.println("nextOccurance: "+output);
     return output;
   }
 
@@ -447,7 +451,6 @@ class exitStmt extends Stmt {
     // System.out.println("hello"+tokens);
     hardExpect(tokenType._exit);
     expr = new booleanStmt(nextOccurance(tokenType._semi_colon), symboltable);
-    System.out.println("OVER HERE");
     //hardExpect(tokenType._semi_colon);
   }
 }
@@ -501,7 +504,7 @@ class booleanStmt extends Stmt {
             output += "cmp rbx,rax\nsetl al\nmovzx rax, al\n";
             break;
           default:
-             System.out.println("Invalid token inside boolean");
+            System.out.println("Invalid");
             System.out.println(tokens.get(index));
             System.exit(0);
             break;
@@ -549,7 +552,7 @@ class booleanStmt extends Stmt {
               System.out.println("Invalid Usage of brackets");
               System.exit(0);
             }
-            System.out.println(stack.pop()+"popped out");
+            stack.pop();
             break;
           case tokenType._and:
           case tokenType._or:
@@ -670,7 +673,7 @@ class Program {
     if(isGlobal){
       output = "global _start\n_start:\n";
     }
-    output = "push rbp\nmov rbp, rsp\nsub rsp," + rsp + "\n";
+    output += "push rbp\nmov rbp, rsp\nsub rsp," + rsp + "\n";
     for (int i = 0; i < statements.size(); i++) {
       output += statements.get(i).parse();
     }
