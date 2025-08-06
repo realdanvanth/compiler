@@ -14,7 +14,7 @@ class compiler {
     compiler inst = new compiler();
     inst.readFile("test.tl");
     inst.tokenize();
-    Program a = new Program(inst.tokens);
+    Program a = new Program(inst.tokens,true);
     // booleanStmt a = new booleanStmt(inst.tokens, new HashMap<>());
     // inst.write(a.parse());
     // System.out.println(a.tokens);
@@ -72,6 +72,12 @@ class compiler {
           case "if":
             tokens.add(new token(tokenType._if, ""));
             break;
+          case "elif":
+            tokens.add(new token(tokenType._else_if, ""));
+            break;
+          case "else":
+            tokens.add(new token(tokenType._else, ""));
+            break;
           case "bool":
             tokens.add(new token(tokenType._type_boolean, ""));
             break;
@@ -104,6 +110,10 @@ class compiler {
         tokens.add(new token(tokenType._open_bracket, ""));
       } else if (data.charAt(i) == ')') {
         tokens.add(new token(tokenType._close_bracket, ""));
+      } else if (data.charAt(i) == '{') {
+        tokens.add(new token(tokenType._open_curly, ""));
+      } else if (data.charAt(i) == '}') {
+        tokens.add(new token(tokenType._close_curly, ""));
       } else if (data.charAt(i) == ';') {
         tokens.add(new token(tokenType._semi_colon, ""));
       } else if (data.charAt(i) == '=') {
@@ -170,7 +180,11 @@ enum tokenType {
   _boolean,
   _equal_to,
   _greater_than,
-  _less_than
+  _less_than,
+  _open_curly,
+  _close_curly,
+  _else,
+  _else_if
 }
 
 // ...............................................................................................................
@@ -197,10 +211,20 @@ abstract class Stmt {
     return true;
   }
 
-  public ArrayList<token> nextSemiColon() {
+  public ArrayList<token> nextOccurance(tokenType t) {
     ArrayList<token> output = new ArrayList<>();
-    while (index < tokens.size() &&
-        tokens.get(index).type() != tokenType._semi_colon) {
+    int cdepth = 0;// gotta change this  for use the depth and shit
+    int sdepth = 0;
+    while (index < tokens.size() &&tokens.get(index).type() != t&&cdepth == 0&&sdepth==0) {
+       if (expect(tokenType._open_bracket)) {
+        sdepth++;
+      } else if (expect(tokenType._close_bracket)) {
+        sdepth--;
+      } else if (expect(tokenType._open_curly)) {
+        cdepth++;
+      } else if (expect(tokenType._close_curly)) {
+        cdepth--;
+      }
       output.add(tokens.get(index));
       consume();
     }
@@ -272,8 +296,6 @@ abstract class Stmt {
 
 // ...............................................................................................................
 class exprStmt extends Stmt {
-  HashMap<String, Integer> symboltable;
-
   exprStmt(ArrayList<token> tokens, HashMap<String, Integer> symboltable) {
     this.tokens = tokens;
     this.symboltable = symboltable;
@@ -424,8 +446,9 @@ class exitStmt extends Stmt {
   void build() {
     // System.out.println("hello"+tokens);
     hardExpect(tokenType._exit);
-    expr = new booleanStmt(nextSemiColon(), symboltable);
-    hardExpect(tokenType._semi_colon);
+    expr = new booleanStmt(nextOccurance(tokenType._semi_colon), symboltable);
+    System.out.println("OVER HERE");
+    //hardExpect(tokenType._semi_colon);
   }
 }
 
@@ -455,7 +478,7 @@ class booleanStmt extends Stmt {
           System.out.println("Use correct type");
           System.exit(0);
         }
-        output += "mov rax, [rbp " + (addr+addr1) + "]\npush rax\n";
+        output += "mov rax, [rbp " + (addr + addr1) + "]\npush rax\n";
         op++;
       } else if (expect(tokenType._not)) {
         output += "pop rax\ntest rax, rax\nsete al\nmovzx rax,al\npush rax\n";
@@ -478,7 +501,7 @@ class booleanStmt extends Stmt {
             output += "cmp rbx,rax\nsetl al\nmovzx rax, al\n";
             break;
           default:
-            System.out.println("Invalid");
+             System.out.println("Invalid token inside boolean");
             System.out.println(tokens.get(index));
             System.exit(0);
             break;
@@ -526,7 +549,7 @@ class booleanStmt extends Stmt {
               System.out.println("Invalid Usage of brackets");
               System.exit(0);
             }
-            stack.pop();
+            System.out.println(stack.pop()+"popped out");
             break;
           case tokenType._and:
           case tokenType._or:
@@ -580,14 +603,14 @@ class assignStmt extends Stmt {
       var = "1" + tokens.get(index).val();
       consume();
       hardExpect(tokenType._equal);
-      expr = new exprStmt(nextSemiColon(), symboltable);
+      expr = new exprStmt(nextOccurance(tokenType._semi_colon), symboltable);
     } else if (expect(tokenType._type_boolean)) {
       consume();
       addident(tokens.get(index), tokenType._boolean, symboltable);
       var = "2" + tokens.get(index).val();
       consume();
       hardExpect(tokenType._equal);
-      expr = new booleanStmt(nextSemiColon(), symboltable);
+      expr = new booleanStmt(nextOccurance(tokenType._semi_colon), symboltable);
       // System.out.println(expr.parse());
     } else if (expect(
         tokenType._type_string)) { // symbol table to be implemented
@@ -598,22 +621,56 @@ class assignStmt extends Stmt {
     hardExpect(tokenType._semi_colon);
   }
 }
-
-// ...............................................................................................................
+//...............................................................................................................
+class ifStmt extends Stmt{
+  int rsp;
+  ArrayList<ifStmt> ladder;
+  exprStmt expr;
+  Program pr;
+  ifStmt(ArrayList<token> tokens,HashMap<String,Integer> symboltable, ArrayList<ifStmt> ladder){
+    this.tokens = tokens;
+    this.symboltable = symboltable;
+    this.ladder = ladder;
+    build();
+  }
+  @Override
+  String parse(){
+    return expr.parse()+"\n"+expr.parse();//do a for loop and shi
+  }
+  void build(){
+    if(expect(tokenType._if)||expect(tokenType._else_if)||expect(tokenType._else))
+    consume();
+    exprStmt expr = new exprStmt(nextOccurance(tokenType._close_bracket), symboltable);
+    hardExpect(tokenType._close_bracket);
+    hardExpect(tokenType._open_curly);
+    Program pr = new Program(nextOccurance(tokenType._close_curly), false);
+    hardExpect(tokenType._close_curly);
+    if(expect(tokenType._else)||expect(tokenType._else_if)){
+      ladder.add(new ifStmt(new ArrayList<>(tokens.subList(index,tokens.size()-1)), symboltable, ladder));
+    }
+  }
+}
+// ..............................................................................................................
 class Program {
   List<token> tokens;
   List<Stmt> statements;
   HashMap<String, Integer> symboltable = new HashMap<>();
+  boolean isGlobal;
   int rsp;
 
-  Program(List<token> tokens) {
+  Program(List<token> tokens,boolean isGlobal) {
     this.tokens = tokens;
     this.statements = new ArrayList<>();
+    this.isGlobal = isGlobal;
     build();
   }
 
   String parse(HashMap<String, Integer> symboltable) {
-    String output = "global _start\n_start:\npush rbp\nmov rbp, rsp\nsub rsp," + rsp + "\n";
+    String output = "";
+    if(isGlobal){
+      output = "global _start\n_start:\n";
+    }
+    output = "push rbp\nmov rbp, rsp\nsub rsp," + rsp + "\n";
     for (int i = 0; i < statements.size(); i++) {
       output += statements.get(i).parse();
     }
@@ -621,17 +678,22 @@ class Program {
   }
 
   void build() {
-    int depth = 0;
+    int sdepth = 0;
+    int cdepth = 0;
     int index = 0;
     rsp = 0;
     for (int i = 0; i < tokens.size(); i++) {
       if (tokens.get(i).type() == tokenType._open_bracket) {
-        depth++;
+        sdepth++;
+      } else if (tokens.get(i).type() == tokenType._close_bracket) {
+        sdepth--;
+      } else if (tokens.get(i).type() == tokenType._open_curly) {
+        cdepth++;
+      } else if (tokens.get(i).type() == tokenType._close_curly) {
+        cdepth--;
       }
-      if (tokens.get(i).type() == tokenType._close_bracket) {
-        depth--;
-      }
-      if (depth == 0 && tokens.get(i).type() == tokenType._semi_colon) {
+      if (sdepth == 0 && cdepth == 0 &&
+          tokens.get(i).type() == tokenType._semi_colon) {
         // statements.add(new stmt(tokens.subList(index, i)));
         // System.out.println(tokens.subList(index, i + 1));
         switch (tokens.get(index).type()) {
@@ -656,6 +718,9 @@ class Program {
             statements.add(assignstmt);
             rsp += 8;
             symboltable.putAll(assignstmt.symboltable);
+            break;
+          case tokenType._if:
+
             break;
           default:
             System.out.println("Syntax error");
