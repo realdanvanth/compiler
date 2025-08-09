@@ -428,7 +428,7 @@ class exprStmt extends Stmt {
       output.add(stack.pop());
     }
     tokens = output;
-    //System.out.println("expr lol");
+    // System.out.println("expr lol");
   }
 }
 
@@ -634,48 +634,65 @@ class ifStmt extends Stmt {
   booleanStmt expr;
   Program pr;
   int id;
+  int exit;
 
-  ifStmt(int id, ArrayList<token> tokens,
-      HashMap<String, Integer> symboltable) {
+  ifStmt(int id, ArrayList<token> tokens, HashMap<String, Integer> symboltable,
+      int exit) {
     this.tokens = tokens;
     this.symboltable = symboltable;
     this.id = id;
+    this.exit = exit;
     build();
   }
 
   @Override
   String parse() {
     String output = "";
-    if(expr!=null)
-    output = expr.parse() + "\n"; // do a for loop and shi
-    output += (next != null) ? next.parse() : "\n";
-    output += pr.parse();
+    if (expr != null) {
+      output = expr.parse() + "\n"; // do a for loop and shi
+      //output += "jmp exitif" + exit + "\n";
+      output += "pop rax\ncmp rax,1\nje L" + pr.id + "\n";
+      output += (next != null) ? next.parse() : "jmp exitif" + exit + "\n";
+      output += pr.parse();
+      output += "jmp exitif" + exit + "\n";
+      index = 0;
+      if (expect(tokenType._if)) {
+        output += "exitif" + exit + ":\n";
+      }
+    }
+    else{
+      output+="jmp L"+pr.id+"\n";
+      output+=pr.parse();
+    }
     return output;
   }
 
-  void build() { // gotta deal with the ending semi
+  void build() { // gotta deal with the ending semi , added lol check the prg
     if (tokens == null) {
       return;
     }
     System.out.println("tokens: " + tokens);
-    if (expect(tokenType._if) || expect(tokenType._else_if)) {
+    if (expect(tokenType._if) ||
+        expect(tokenType._else_if)) { // need to check if comes inside if
       consume();
       System.out.println("CAME HERE ONCE");
       hardExpect(tokenType._open_bracket);
       expr = new booleanStmt(nextOccurance(tokenType._close_bracket), symboltable);
       hardExpect(tokenType._close_bracket);
       hardExpect(tokenType._open_curly);
-      pr = new Program(nextOccurance(tokenType._close_curly), id+1);
+      pr = new Program(nextOccurance(tokenType._close_curly), id + 1);
       hardExpect(tokenType._close_curly);
       if (expect(tokenType._else) || expect(tokenType._else_if)) {
-        next = new ifStmt(id + 1, new ArrayList<>(tokens.subList(index, tokens.size())),
-            symboltable);
+        next = new ifStmt(id + 1,
+            new ArrayList<>(tokens.subList(index, tokens.size())),
+            symboltable, exit);
+      } else {
       }
     } else if (expect(tokenType._else)) {
       consume();
       System.out.println("hereeeeeeeeeeeeeeeeeee");
       hardExpect(tokenType._open_curly);
-      pr = new Program(nextOccurance(tokenType._close_curly), id+1);
+      pr = new Program(nextOccurance(tokenType._close_curly), id + 1);
       hardExpect(tokenType._close_curly);
     } else {
       System.out.println("Invalid if Syntax");
@@ -688,11 +705,11 @@ class ifStmt extends Stmt {
 class Program {
   List<token> tokens;
   List<Stmt> statements;
-  int id ;
+  int id;
   HashMap<String, Integer> symboltable = new HashMap<>();
   int rsp;
 
-  Program(List<token> tokens,int id) {
+  Program(List<token> tokens, int id) {
     this.tokens = tokens;
     this.statements = new ArrayList<>();
     this.id = id;
@@ -701,11 +718,10 @@ class Program {
 
   String parse() {
     String output = "";
-    if (id==0) {
+    if (id == 0) {
       output = "global _start\n_start:\n";
-    }
-    else{
-      output+="L"+id+":\n";
+    } else {
+      output += "L" + id + ":\n";
     }
     output += "push rbp\nmov rbp, rsp\nsub rsp," + rsp + "\n";
     for (int i = 0; i < statements.size(); i++) {
@@ -721,6 +737,7 @@ class Program {
     int cdepth = 0;
     int index = 0;
     rsp = 0;
+    int nextid = 0;
     for (int i = 0; i < tokens.size(); i++) {
       if (tokens.get(i).type() == tokenType._open_bracket) {
         sdepth++;
@@ -759,8 +776,8 @@ class Program {
             symboltable.putAll(assignstmt.symboltable);
             break;
           case tokenType._if:
-            ifStmt ifstmt = new ifStmt(id+1, new ArrayList<>(tokens.subList(index, i)),
-                new HashMap<>(symboltable));
+            ifStmt ifstmt = new ifStmt(nextid, new ArrayList<>(tokens.subList(index, i)),
+                new HashMap<>(symboltable), nextid + 1);
             statements.add(ifstmt);
             break;
           default:
