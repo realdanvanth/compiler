@@ -14,11 +14,11 @@ class compiler {
     compiler inst = new compiler();
     inst.readFile("test.tl");
     inst.tokenize();
-    Program a = new Program(inst.tokens,true);
+    Program a = new Program(inst.tokens, 0);
     // booleanStmt a = new booleanStmt(inst.tokens, new HashMap<>());
     // inst.write(a.parse());
     // System.out.println(a.tokens);
-    inst.write(a.parse(a.symboltable));
+    inst.write(a.parse());
     // System.out.println(a.parse(a.symboltable));
   }
 
@@ -213,13 +213,13 @@ abstract class Stmt {
 
   public ArrayList<token> nextOccurance(tokenType t) {
     ArrayList<token> output = new ArrayList<>();
-    int cdepth = 0;// gotta change this  for use the depth and shit
+    int cdepth = 0; // gotta change this for use the depth and shit
     int sdepth = 0;
     while (index < tokens.size()) {
-      if(tokens.get(index).type()==t&&cdepth==0&&sdepth==0){
+      if (tokens.get(index).type() == t && cdepth == 0 && sdepth == 0) {
         break;
       }
-       if (expect(tokenType._open_bracket)) {
+      if (expect(tokenType._open_bracket)) {
         sdepth++;
       } else if (expect(tokenType._close_bracket)) {
         sdepth--;
@@ -231,7 +231,7 @@ abstract class Stmt {
       output.add(tokens.get(index));
       consume();
     }
-    //System.out.println("nextOccurance: "+output);
+    // System.out.println("nextOccurance: "+output);
     return output;
   }
 
@@ -428,6 +428,7 @@ class exprStmt extends Stmt {
       output.add(stack.pop());
     }
     tokens = output;
+    //System.out.println("expr lol");
   }
 }
 
@@ -449,9 +450,10 @@ class exitStmt extends Stmt {
 
   void build() {
     // System.out.println("hello"+tokens);
+    System.out.println(tokens);
     hardExpect(tokenType._exit);
     expr = new booleanStmt(nextOccurance(tokenType._semi_colon), symboltable);
-    //hardExpect(tokenType._semi_colon);
+    hardExpect(tokenType._semi_colon);
   }
 }
 
@@ -624,59 +626,93 @@ class assignStmt extends Stmt {
     hardExpect(tokenType._semi_colon);
   }
 }
-//...............................................................................................................
-class ifStmt extends Stmt{
+
+// ...............................................................................................................
+class ifStmt extends Stmt {
   int rsp;
-  ArrayList<ifStmt> ladder;
-  exprStmt expr;
+  ifStmt next;
+  booleanStmt expr;
   Program pr;
-  ifStmt(ArrayList<token> tokens,HashMap<String,Integer> symboltable, ArrayList<ifStmt> ladder){
+  int id;
+
+  ifStmt(int id, ArrayList<token> tokens,
+      HashMap<String, Integer> symboltable) {
     this.tokens = tokens;
     this.symboltable = symboltable;
-    this.ladder = ladder;
+    this.id = id;
     build();
   }
+
   @Override
-  String parse(){
-    return expr.parse()+"\n"+expr.parse();//do a for loop and shi
+  String parse() {
+    String output = "";
+    if(expr!=null)
+    output = expr.parse() + "\n"; // do a for loop and shi
+    output += (next != null) ? next.parse() : "\n";
+    output += pr.parse();
+    return output;
   }
-  void build(){
-    if(expect(tokenType._if)||expect(tokenType._else_if)||expect(tokenType._else))
-    consume();
-    exprStmt expr = new exprStmt(nextOccurance(tokenType._close_bracket), symboltable);
-    hardExpect(tokenType._close_bracket);
-    hardExpect(tokenType._open_curly);
-    Program pr = new Program(nextOccurance(tokenType._close_curly), false);
-    hardExpect(tokenType._close_curly);
-    if(expect(tokenType._else)||expect(tokenType._else_if)){
-      ladder.add(new ifStmt(new ArrayList<>(tokens.subList(index,tokens.size()-1)), symboltable, ladder));
+
+  void build() { // gotta deal with the ending semi
+    if (tokens == null) {
+      return;
+    }
+    System.out.println("tokens: " + tokens);
+    if (expect(tokenType._if) || expect(tokenType._else_if)) {
+      consume();
+      System.out.println("CAME HERE ONCE");
+      hardExpect(tokenType._open_bracket);
+      expr = new booleanStmt(nextOccurance(tokenType._close_bracket), symboltable);
+      hardExpect(tokenType._close_bracket);
+      hardExpect(tokenType._open_curly);
+      pr = new Program(nextOccurance(tokenType._close_curly), id+1);
+      hardExpect(tokenType._close_curly);
+      if (expect(tokenType._else) || expect(tokenType._else_if)) {
+        next = new ifStmt(id + 1, new ArrayList<>(tokens.subList(index, tokens.size())),
+            symboltable);
+      }
+    } else if (expect(tokenType._else)) {
+      consume();
+      System.out.println("hereeeeeeeeeeeeeeeeeee");
+      hardExpect(tokenType._open_curly);
+      pr = new Program(nextOccurance(tokenType._close_curly), id+1);
+      hardExpect(tokenType._close_curly);
+    } else {
+      System.out.println("Invalid if Syntax");
+      System.exit(0);
     }
   }
 }
+
 // ..............................................................................................................
 class Program {
   List<token> tokens;
   List<Stmt> statements;
+  int id ;
   HashMap<String, Integer> symboltable = new HashMap<>();
-  boolean isGlobal;
   int rsp;
 
-  Program(List<token> tokens,boolean isGlobal) {
+  Program(List<token> tokens,int id) {
     this.tokens = tokens;
     this.statements = new ArrayList<>();
-    this.isGlobal = isGlobal;
+    this.id = id;
     build();
   }
 
-  String parse(HashMap<String, Integer> symboltable) {
+  String parse() {
     String output = "";
-    if(isGlobal){
+    if (id==0) {
       output = "global _start\n_start:\n";
+    }
+    else{
+      output+="L"+id+":\n";
     }
     output += "push rbp\nmov rbp, rsp\nsub rsp," + rsp + "\n";
     for (int i = 0; i < statements.size(); i++) {
       output += statements.get(i).parse();
     }
+    output += "mov rsp, rbp\npop rbp\n";
+    System.out.println("WRITTEN SUCCESSFULLY");
     return output;
   }
 
@@ -723,7 +759,9 @@ class Program {
             symboltable.putAll(assignstmt.symboltable);
             break;
           case tokenType._if:
-
+            ifStmt ifstmt = new ifStmt(id+1, new ArrayList<>(tokens.subList(index, i)),
+                new HashMap<>(symboltable));
+            statements.add(ifstmt);
             break;
           default:
             System.out.println("Syntax error");
