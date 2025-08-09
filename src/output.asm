@@ -2,41 +2,81 @@ global _start
 _start:
 push rbp
 mov rbp, rsp
-sub rsp,24
-push 50
-push 7
-pop rcx
-pop rax
-xor rdx, rdx
-div rcx
-push rdx
-; expression ends here
+sub rsp,16
+push 71
+
 pop rax
 mov [rbp-8], rax
-mov rax, [rbp-8]
-push rax;getting a
-push 20
-pop rax
-pop rbx
-imul rax, rbx
+mov rax, [rbp -8]
 push rax
-; expression ends here
-pop rax
-mov [rbp-16], rax
-mov rax, [rbp-16]
-push rax;getting b
-push 6
+push 3
 pop rcx
 pop rax
 xor rdx, rdx
 div rcx
 push rdx
-; expression ends here
+
 pop rax
-mov [rbp-24], rax
-mov rax, [rbp-24]
-push rax;getting c
-; expression ends here
+mov [rbp-16], rax
+mov rax, [rbp -16]
+push rax
+push 0
+pop rax
+pop rbx
+cmp rax, rbx
+sete al
+movzx rax, al
+push rax
+
+pop rax
+cmp rax,1
+je L1
+mov rax, [rbp -16]
+push rax
+push 1
+pop rax
+pop rbx
+cmp rax, rbx
+sete al
+movzx rax, al
+push rax
+
+pop rax
+cmp rax,1
+je L2
+jmp L3
+L3:
+push rbp
+mov rbp, rsp
+sub rsp,0
+push 3
 pop rdi
 mov rax, 60
 syscall
+mov rsp, rbp
+pop rbp
+L2:
+push rbp
+mov rbp, rsp
+sub rsp,0
+push 2
+pop rdi
+mov rax, 60
+syscall
+mov rsp, rbp
+pop rbp
+jmp exitif1
+L1:
+push rbp
+mov rbp, rsp
+sub rsp,0
+push 1
+pop rdi
+mov rax, 60
+syscall
+mov rsp, rbp
+pop rbp
+jmp exitif1
+exitif1:
+mov rsp, rbp
+pop rbp
