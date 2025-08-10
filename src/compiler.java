@@ -621,6 +621,20 @@ class assignStmt extends Stmt {
         tokenType._type_string)) { // symbol table to be implemented
       consume();
       var = "3" + tokens.get(index).val(); // to be filled out in the future
+    } else if (expect(tokenType._ident)) {
+      if (isValidtoUse(tokens.get(index), tokenType._int, symboltable) != 0) {
+        var = "1" + tokens.get(index).val();
+        consume();
+        hardExpect(tokenType._equal);
+        expr = new exprStmt(nextOccurance(tokenType._semi_colon), symboltable);
+      } else if (isValidtoUse(tokens.get(index), tokenType._type_boolean,
+          symboltable) != 0) {
+        var = "2" + tokens.get(index).val();
+        consume();
+        hardExpect(tokenType._equal);
+        expr = new exprStmt(nextOccurance(tokenType._semi_colon), symboltable);
+      }
+      // add string later on
     }
     // consume();
     hardExpect(tokenType._semi_colon);
@@ -650,7 +664,7 @@ class ifStmt extends Stmt {
     String output = "";
     if (expr != null) {
       output = expr.parse() + "\n"; // do a for loop and shi
-      //output += "jmp exitif" + exit + "\n";
+      // output += "jmp exitif" + exit + "\n";
       output += "pop rax\ncmp rax,1\nje L" + pr.id + "\n";
       output += (next != null) ? next.parse() : "jmp exitif" + exit + "\n";
       output += pr.parse();
@@ -659,10 +673,9 @@ class ifStmt extends Stmt {
       if (expect(tokenType._if)) {
         output += "exitif" + exit + ":\n";
       }
-    }
-    else{
-      output+="jmp L"+pr.id+"\n";
-      output+=pr.parse();
+    } else {
+      output += "jmp L" + pr.id + "\n";
+      output += pr.parse();
     }
     return output;
   }
@@ -768,6 +781,7 @@ class Program {
             break;
           case tokenType._type_int:
           case tokenType._type_boolean:
+          case tokenType._ident:
             // System.out.println("HELLO THEE");
             assignStmt assignstmt = new assignStmt(new ArrayList<>(tokens.subList(index, i + 1)),
                 new HashMap<>(symboltable));
@@ -777,7 +791,7 @@ class Program {
             break;
           case tokenType._if:
             ifStmt ifstmt = new ifStmt(nextid, new ArrayList<>(tokens.subList(index, i)),
-                new HashMap<>(symboltable), nextid + 1);
+                new HashMap<>(symboltable), ++nextid);
             statements.add(ifstmt);
             break;
           default:
