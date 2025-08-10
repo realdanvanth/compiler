@@ -14,7 +14,7 @@ class compiler {
     compiler inst = new compiler();
     inst.readFile("test.tl");
     inst.tokenize();
-    Program a = new Program(inst.tokens, 0);
+    Program a = new Program(inst.tokens, 0, new HashMap<>());
     // booleanStmt a = new booleanStmt(inst.tokens, new HashMap<>());
     // inst.write(a.parse());
     // System.out.println(a.tokens);
@@ -86,6 +86,9 @@ class compiler {
             break;
           case "false":
             tokens.add(new token(tokenType._boolean, "0"));
+            break;
+          case "while":
+            tokens.add(new token(tokenType._while, ""));
             break;
           default:
             tokens.add(new token(tokenType._ident, buffer));
@@ -184,7 +187,8 @@ enum tokenType {
   _open_curly,
   _close_curly,
   _else,
-  _else_if
+  _else_if,
+  _while
 }
 
 // ...............................................................................................................
@@ -241,13 +245,14 @@ abstract class Stmt {
       System.out.println("Identifier expected ");
       System.exit(0);
     }
+    System.out.println("symboltable to check " + symboltable);
     // System.exit(0);
     // System.out.println(symboltable);
     if (!(symboltable.containsKey("1" + ident.val()) ||
         symboltable.containsKey("2" + ident.val()) ||
         symboltable.containsKey("3" + ident.val()))) {
-      System.out.println("Invalid usage of identifier ");
-      System.exit(0);
+      // System.out.println("Invalid usage of identifier ");
+      return 0;
     }
     String check = "";
     switch (t) {
@@ -627,7 +632,7 @@ class assignStmt extends Stmt {
         consume();
         hardExpect(tokenType._equal);
         expr = new exprStmt(nextOccurance(tokenType._semi_colon), symboltable);
-      } else if (isValidtoUse(tokens.get(index), tokenType._type_boolean,
+      } else if (isValidtoUse(tokens.get(index), tokenType._boolean,
           symboltable) != 0) {
         var = "2" + tokens.get(index).val();
         consume();
@@ -643,7 +648,6 @@ class assignStmt extends Stmt {
 
 // ...............................................................................................................
 class ifStmt extends Stmt {
-  int rsp;
   ifStmt next;
   booleanStmt expr;
   Program pr;
@@ -654,6 +658,8 @@ class ifStmt extends Stmt {
       int exit) {
     this.tokens = tokens;
     this.symboltable = symboltable;
+    System.out.println("symboltable lol " + symboltable);
+    System.out.println("IF STATEMENT RECIEVED" + tokens);
     this.id = id;
     this.exit = exit;
     build();
@@ -676,6 +682,7 @@ class ifStmt extends Stmt {
     } else {
       output += "jmp L" + pr.id + "\n";
       output += pr.parse();
+      output += "jmp exitif" + exit + "\n";
     }
     return output;
   }
@@ -693,10 +700,11 @@ class ifStmt extends Stmt {
       expr = new booleanStmt(nextOccurance(tokenType._close_bracket), symboltable);
       hardExpect(tokenType._close_bracket);
       hardExpect(tokenType._open_curly);
-      pr = new Program(nextOccurance(tokenType._close_curly), id + 1);
+      pr = new Program(nextOccurance(tokenType._close_curly), (id * 10),
+          symboltable);
       hardExpect(tokenType._close_curly);
       if (expect(tokenType._else) || expect(tokenType._else_if)) {
-        next = new ifStmt(id + 1,
+        next = new ifStmt((id+1),
             new ArrayList<>(tokens.subList(index, tokens.size())),
             symboltable, exit);
       } else {
@@ -705,12 +713,53 @@ class ifStmt extends Stmt {
       consume();
       System.out.println("hereeeeeeeeeeeeeeeeeee");
       hardExpect(tokenType._open_curly);
-      pr = new Program(nextOccurance(tokenType._close_curly), id + 1);
+      pr = new Program(nextOccurance(tokenType._close_curly), (id * 10),
+          symboltable);
       hardExpect(tokenType._close_curly);
     } else {
       System.out.println("Invalid if Syntax");
       System.exit(0);
     }
+  }
+}
+
+// ...............................................................................................................
+class forStmt extends Stmt {
+  booleanStmt expr;
+  Program pr;
+  int id;
+  int exit;
+
+  forStmt(int id, ArrayList<token> tokens, HashMap<String, Integer> symboltable,
+      int exit) {
+    this.tokens = tokens;
+    this.symboltable = symboltable;
+    System.out.println("symboltable lol " + symboltable);
+    this.id = id;
+    this.exit = exit;
+    build();
+  }
+
+  @Override
+  String parse() {
+    String output = "L" + id + ":\n";
+    output += expr.parse();
+    output += "pop rax\ncmp rax,0\nje exitfor" + exit + "\n";
+    output += pr.parse();
+    output += "jmp L" + id + "\nexitfor" + exit + ":\n";
+    return output;
+  }
+
+  void build() {
+    hardExpect(tokenType._while);
+    System.out.println("tokens here llllll" + tokens);
+    hardExpect(tokenType._open_bracket);
+    expr = new booleanStmt(nextOccurance(tokenType._close_bracket), symboltable);
+    hardExpect(tokenType._close_bracket);
+    hardExpect(tokenType._open_curly);
+    pr = new Program(nextOccurance(tokenType._close_curly), (id*10),
+        symboltable);
+    hardExpect(tokenType._close_curly);
   }
 }
 
@@ -722,9 +771,10 @@ class Program {
   HashMap<String, Integer> symboltable = new HashMap<>();
   int rsp;
 
-  Program(List<token> tokens, int id) {
+  Program(List<token> tokens, int id, HashMap<String, Integer> symboltable) {
     this.tokens = tokens;
     this.statements = new ArrayList<>();
+    this.symboltable = symboltable;
     this.id = id;
     build();
   }
@@ -736,11 +786,15 @@ class Program {
     } else {
       output += "L" + id + ":\n";
     }
-    output += "push rbp\nmov rbp, rsp\nsub rsp," + rsp + "\n";
+    if (rsp != 0)
+      output += "push rbp\nmov rbp, rsp\nsub rsp," + rsp + "\n";
     for (int i = 0; i < statements.size(); i++) {
       output += statements.get(i).parse();
     }
-    output += "mov rsp, rbp\npop rbp\n";
+    /*
+     * if(rsp!=0)
+     * output += "mov rsp, rbp\npop rbp\n";
+     */
     System.out.println("WRITTEN SUCCESSFULLY");
     return output;
   }
@@ -750,7 +804,7 @@ class Program {
     int cdepth = 0;
     int index = 0;
     rsp = 0;
-    int nextid = 0;
+    int nextid = 1+id;
     for (int i = 0; i < tokens.size(); i++) {
       if (tokens.get(i).type() == tokenType._open_bracket) {
         sdepth++;
@@ -781,7 +835,6 @@ class Program {
             break;
           case tokenType._type_int:
           case tokenType._type_boolean:
-          case tokenType._ident:
             // System.out.println("HELLO THEE");
             assignStmt assignstmt = new assignStmt(new ArrayList<>(tokens.subList(index, i + 1)),
                 new HashMap<>(symboltable));
@@ -789,10 +842,25 @@ class Program {
             rsp += 8;
             symboltable.putAll(assignstmt.symboltable);
             break;
+          case tokenType._ident:
+            // System.out.println("HELLO THEE");
+            assignStmt assignstmt1 = new assignStmt(new ArrayList<>(tokens.subList(index, i + 1)),
+                new HashMap<>(symboltable));
+            statements.add(assignstmt1);
+            symboltable.putAll(assignstmt1.symboltable);
+            break;
           case tokenType._if:
-            ifStmt ifstmt = new ifStmt(nextid, new ArrayList<>(tokens.subList(index, i)),
-                new HashMap<>(symboltable), ++nextid);
+            ifStmt ifstmt = new ifStmt(nextid * 10, new ArrayList<>(tokens.subList(index, i)),
+                new HashMap<>(symboltable), nextid + 1);
             statements.add(ifstmt);
+            nextid++;
+            break;
+          case tokenType._while:
+            forStmt forStmt = new forStmt(
+                nextid * 10, new ArrayList<>(tokens.subList(index, i)),
+                new HashMap<>(symboltable), nextid + 1);
+            statements.add(forStmt);
+            nextid++;
             break;
           default:
             System.out.println("Syntax error");
@@ -806,3 +874,6 @@ class Program {
     // System.out.println(symboltable);
   }
 }
+
+// gotta change the id conventions of program and if statements
+// please god , i will sacrifice a goat if it works
