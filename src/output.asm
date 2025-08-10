@@ -2,14 +2,42 @@ global _start
 _start:
 push rbp
 mov rbp, rsp
-sub rsp,16
-push 71
+sub rsp,32
+push 1
 
 pop rax
 mov [rbp-8], rax
+push 2147483647
+
+pop rax
+mov [rbp-16], rax
+push 0
+
+pop rax
+mov [rbp-24], rax
+push 0
+
+pop rax
+mov [rbp-32], rax
+L10:
 mov rax, [rbp -8]
 push rax
-push 3
+mov rax, [rbp -16]
+push rax
+pop rax
+pop rbx
+cmp rbx,rax
+setl al
+movzx rax, al
+push rax
+pop rax
+cmp rax,0
+je exitfor2
+L100:
+mov rax, [rbp -16]
+push rax
+mov rax, [rbp -8]
+push rax
 pop rcx
 pop rax
 xor rdx, rdx
@@ -17,8 +45,8 @@ div rcx
 push rdx
 
 pop rax
-mov [rbp-16], rax
-mov rax, [rbp -16]
+mov [rbp-32], rax
+mov rax, [rbp -32]
 push rax
 push 0
 pop rax
@@ -30,8 +58,34 @@ push rax
 
 pop rax
 cmp rax,1
-je L1
-mov rax, [rbp -16]
+je L10100
+jmp exitif102
+L10100:
+mov rax, [rbp -24]
+push rax
+push 1
+pop rax
+pop rbx
+add rax, rbx
+push rax
+
+pop rax
+mov [rbp-24], rax
+jmp exitif102
+exitif102:
+mov rax, [rbp -8]
+push rax
+push 1
+pop rax
+pop rbx
+add rax, rbx
+push rax
+
+pop rax
+mov [rbp-8], rax
+jmp L10
+exitfor2:
+mov rax, [rbp -24]
 push rax
 push 1
 pop rax
@@ -43,40 +97,16 @@ push rax
 
 pop rax
 cmp rax,1
-je L2
-jmp L3
-L3:
-push rbp
-mov rbp, rsp
-sub rsp,0
-push 3
-pop rdi
-mov rax, 60
-syscall
-mov rsp, rbp
-pop rbp
-L2:
-push rbp
-mov rbp, rsp
-sub rsp,0
-push 2
-pop rdi
-mov rax, 60
-syscall
-mov rsp, rbp
-pop rbp
-jmp exitif1
-L1:
-push rbp
-mov rbp, rsp
-sub rsp,0
+je L200
+jmp exitif3
+L200:
 push 1
 pop rdi
 mov rax, 60
 syscall
-mov rsp, rbp
-pop rbp
-jmp exitif1
-exitif1:
-mov rsp, rbp
-pop rbp
+jmp exitif3
+exitif3:
+push 0
+pop rdi
+mov rax, 60
+syscall
