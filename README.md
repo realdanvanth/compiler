@@ -1,12 +1,15 @@
 # compiler 
-minimal x86_64 compiler that converts my code to asm 
-variable declaration
+minimal x86_64 compiler that converts my code to assembly
+it is written entirely from scratch without any dependencies 
+except the java runtime environment and nasm assembler 
+currently all the code is modular in assembly ,meaning its really 
+unoptimized and it still manages to beat python at speed 
 ## installation 
-```
+```bash
 npm install real-compiler 
 ```
 # execution 
-```
+```bash
 npx compiler yourfile.tl
 ```
 
@@ -14,15 +17,16 @@ npx compiler yourfile.tl
 - ':' -> equal to
 - '|' -> or
 - '&' -> and
+
 the rest are standard
 
 ## variable declaration statement
-```
+```c
 int a = {NumExp} \\ all integers and booleans are 64 bit
 boolean a = {BoolExp}
 ```
 ## if statements 
-```
+```c
 if(cond a){
 {Program}
 }
@@ -35,13 +39,13 @@ else
 };
 ```
 ## loop statements 
-```
+```c
 while(cond a){
 {Prog}
 };
 ```
 ## exit statement
-```
+```c
 exit({NumExp});
 ```
 ## program
