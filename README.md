@@ -38,7 +38,7 @@ else
 ```
 while(cond a){
 {Prog}
-}
+};
 ```
 ## exit statement
 ```
