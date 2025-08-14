@@ -1,5 +1,5 @@
 # compiler 
-minimal x86_64 compiler that converts my code to assembly
+minimal x86_64 compiler that converts cslop to assembly
 it is written entirely from scratch without any dependencies 
 except the java runtime environment and nasm assembler 
 currently all the code is modular in assembly ,meaning its really 
