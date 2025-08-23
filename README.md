@@ -77,10 +77,11 @@ exit(0);
 - [x] 7. arithmetic expressions
 - [x] 8. boolean expressions
 - [x] 9. while loops
-- [ ] 10. variable scopes
-- [ ] 11. functions
-- [ ] 12. peephole optimization
-- [ ] 13. arrays and strings
-- [ ] 14. input and output 
+- [x] 10. variable scopes
+- [ ] 11. error handling
+- [ ] 12. functions
+- [ ] 13. peephole optimization
+- [ ] 14. arrays and strings
+- [ ] 15. input and output 
 # what motivated me to do this?
 https://youtu.be/NYClgSGzWnI?si=0JVQt2eyNDXL4UK_
