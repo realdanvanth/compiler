@@ -15,11 +15,7 @@ class compiler {
     inst.readFile("test.tl");
     inst.tokenize();
     Program a = new Program(inst.tokens, 0, new HashMap<>());
-    // booleanStmt a = new booleanStmt(inst.tokens, new HashMap<>());
-    // inst.write(a.parse());
-    // System.out.println(a.tokens);
     inst.write(a.parse());
-    // System.out.println(a.parse(a.symboltable));
   }
 
   void write(String data) throws IOException {
@@ -109,7 +105,30 @@ class compiler {
           i++;
         }
         tokens.add(new token(tokenType._string, buffer));
-      } else if (data.charAt(i) == '(') {
+      } else if (data.charAt(i)=='/') {
+        i++;
+        if(i<data.length()&&data.charAt(i)=='/')
+        while(i<data.length()&&data.charAt(i)!='\n'){
+          i++;
+        }
+        else if(i<data.length()&&data.charAt(i)=='*'){
+          i++;
+          boolean flag = true;
+          while(i+1<data.length()){
+            if(data.charAt(i)=='*'&&data.charAt(i+1)=='/')
+            {
+              i+=2;
+              flag = false;
+              break;
+            }
+            i++;
+          }
+          if(flag){
+            System.out.println("invalid multiline comment");
+            System.exit(0);
+          }
+        }
+      }else if (data.charAt(i) == '(') {
         tokens.add(new token(tokenType._open_bracket, ""));
       } else if (data.charAt(i) == ')') {
         tokens.add(new token(tokenType._close_bracket, ""));
@@ -218,7 +237,7 @@ abstract class Stmt {
   public ArrayList<token> nextOccurance(tokenType t) {
     ArrayList<token> output = new ArrayList<>();
     int cdepth = 0; // gotta change this for use the depth and shit
-    int sdepth = 0;
+    int sdepth = 0;//fixed for now
     while (index < tokens.size()) {
       if (tokens.get(index).type() == t && cdepth == 0 && sdepth == 0) {
         break;
@@ -245,7 +264,7 @@ abstract class Stmt {
       System.out.println("Identifier expected ");
       System.exit(0);
     }
-    System.out.println("symboltable to check " + symboltable);
+    //System.out.println("symboltable to check " + symboltable);
     // System.exit(0);
     // System.out.println(symboltable);
     if (!(symboltable.containsKey("1" + ident.val()) ||
@@ -326,7 +345,7 @@ class exprStmt extends Stmt {
           System.out.println("use correct type");
           System.exit(0);
         }
-        output += "mov rax, [rbp " + addr + "]\npush rax\n";
+        output += "mov rax, [rbp" + addr + "]\npush rax\n";
         op++;
       } else {
         switch (tokens.get(index).type()) {
@@ -358,11 +377,11 @@ class exprStmt extends Stmt {
       consume();
     }
     if (op != 1) {
-      System.out.println(output);
+      //System.out.println(output);
       System.out.println("Expression error");
       System.exit(0);
     }
-    return output + "\n";
+    return output ;
   }
 
   void build() { // another method to check if its a valid expression to be
@@ -455,7 +474,7 @@ class exitStmt extends Stmt {
 
   void build() {
     // System.out.println("hello"+tokens);
-    System.out.println(tokens);
+    //System.out.println(tokens);
     hardExpect(tokenType._exit);
     expr = new booleanStmt(nextOccurance(tokenType._semi_colon), symboltable);
     hardExpect(tokenType._semi_colon);
@@ -512,7 +531,7 @@ class booleanStmt extends Stmt {
             break;
           default:
             System.out.println("Invalid");
-            System.out.println(tokens.get(index));
+            //System.out.println(tokens.get(index));
             System.exit(0);
             break;
         }
@@ -658,8 +677,8 @@ class ifStmt extends Stmt {
       int exit) {
     this.tokens = tokens;
     this.symboltable = symboltable;
-    System.out.println("symboltable lol " + symboltable);
-    System.out.println("IF STATEMENT RECIEVED" + tokens);
+    //System.out.println("symboltable lol " + symboltable);
+    //System.out.println("IF STATEMENT RECIEVED" + tokens);
     this.id = id;
     this.exit = exit;
     build();
@@ -691,11 +710,11 @@ class ifStmt extends Stmt {
     if (tokens == null) {
       return;
     }
-    System.out.println("tokens: " + tokens);
+    //System.out.println("tokens: " + tokens);
     if (expect(tokenType._if) ||
         expect(tokenType._else_if)) { // need to check if comes inside if
       consume();
-      System.out.println("CAME HERE ONCE");
+      //System.out.println("CAME HERE ONCE");
       hardExpect(tokenType._open_bracket);
       expr = new booleanStmt(nextOccurance(tokenType._close_bracket), symboltable);
       hardExpect(tokenType._close_bracket);
@@ -711,7 +730,7 @@ class ifStmt extends Stmt {
       }
     } else if (expect(tokenType._else)) {
       consume();
-      System.out.println("hereeeeeeeeeeeeeeeeeee");
+      //System.out.println("hereeeeeeeeeeeeeeeeeee");
       hardExpect(tokenType._open_curly);
       pr = new Program(nextOccurance(tokenType._close_curly), (id * 10),
           symboltable);
@@ -734,7 +753,7 @@ class forStmt extends Stmt {
       int exit) {
     this.tokens = tokens;
     this.symboltable = symboltable;
-    System.out.println("symboltable lol " + symboltable);
+    //System.out.println("symboltable lol " + symboltable);
     this.id = id;
     this.exit = exit;
     build();
@@ -752,7 +771,7 @@ class forStmt extends Stmt {
 
   void build() {
     hardExpect(tokenType._while);
-    System.out.println("tokens here llllll" + tokens);
+    //System.out.println("tokens here llllll" + tokens);
     hardExpect(tokenType._open_bracket);
     expr = new booleanStmt(nextOccurance(tokenType._close_bracket), symboltable);
     hardExpect(tokenType._close_bracket);
@@ -786,16 +805,19 @@ class Program {
     } else {
       output += "L" + id + ":\n";
     }
-    if (rsp != 0)
+    if (rsp != 0&&id==0)
       output += "push rbp\nmov rbp, rsp\nsub rsp," + rsp + "\n";
+     else if(rsp!=0){
+      output += "sub rsp, "+rsp+"\n";
+    }
     for (int i = 0; i < statements.size(); i++) {
       output += statements.get(i).parse();
     }
-    /*
+     /*
      * if(rsp!=0)
      * output += "mov rsp, rbp\npop rbp\n";
      */
-    System.out.println("WRITTEN SUCCESSFULLY");
+    //System.out.println("WRITTEN SUCCESSFULLY");
     return output;
   }
 
