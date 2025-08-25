@@ -86,6 +86,9 @@ class compiler {
           case "while":
             tokens.add(new token(tokenType._while, ""));
             break;
+          case "sleep":
+            tokens.add(new token(tokenType._sleep,""));
+            break;
           default:
             tokens.add(new token(tokenType._ident, buffer));
         }
@@ -105,7 +108,7 @@ class compiler {
           i++;
         }
         tokens.add(new token(tokenType._string, buffer));
-      } else if (data.charAt(i)=='/') {
+      }/* else if (data.charAt(i)=='/'&&i+1<data.length()&&(data.charAt(i)=='*'||data.charAt(i)=='/')) {
         i++;
         if(i<data.length()&&data.charAt(i)=='/')
         while(i<data.length()&&data.charAt(i)!='\n'){
@@ -128,7 +131,7 @@ class compiler {
             System.exit(0);
           }
         }
-      }else if (data.charAt(i) == '(') {
+      }*/else if (data.charAt(i) == '(') {
         tokens.add(new token(tokenType._open_bracket, ""));
       } else if (data.charAt(i) == ')') {
         tokens.add(new token(tokenType._close_bracket, ""));
@@ -207,7 +210,9 @@ enum tokenType {
   _close_curly,
   _else,
   _else_if,
-  _while
+  _while,
+  _func,
+  _sleep
 }
 
 // ...............................................................................................................
@@ -377,7 +382,7 @@ class exprStmt extends Stmt {
       consume();
     }
     if (op != 1) {
-      //System.out.println(output);
+      System.out.println(output);
       System.out.println("Expression error");
       System.exit(0);
     }
@@ -444,6 +449,8 @@ class exprStmt extends Stmt {
             }
             stack.push(tokens.get(index));
             break;
+          default:
+            System.out.println("invalid token in expression");
         }
       }
       consume();
@@ -476,7 +483,29 @@ class exitStmt extends Stmt {
     // System.out.println("hello"+tokens);
     //System.out.println(tokens);
     hardExpect(tokenType._exit);
-    expr = new booleanStmt(nextOccurance(tokenType._semi_colon), symboltable);
+    expr = new exprStmt(nextOccurance(tokenType._semi_colon), symboltable);
+    hardExpect(tokenType._semi_colon);
+  }
+}
+//...............................................................................................................
+
+class sleepStmt extends Stmt{
+  Stmt expr; 
+  HashMap<String,Integer>symboltable = new HashMap<>();
+  sleepStmt(ArrayList<token> tokens, HashMap<String, Integer> symboltable) {
+    this.tokens = tokens;
+    this.symboltable = symboltable;
+    build();
+  }
+
+  @Override
+  String parse() {
+    return expr.parse()+"mov rax, 35\nmov rdi, rsp\nxor rsi,rsi\nsyscall\n";
+  }
+
+  void build() { 
+    hardExpect(tokenType._sleep);
+    expr = new exprStmt(nextOccurance(tokenType._semi_colon), symboltable);
     hardExpect(tokenType._semi_colon);
   }
 }
@@ -781,6 +810,27 @@ class forStmt extends Stmt {
     hardExpect(tokenType._close_curly);
   }
 }
+//...............................................................................................................
+
+class function extends Stmt{
+   Program pr;
+   int id;
+   int exit;
+   function(int id, ArrayList<token>tokens,HashMap<String,Integer> symboltable,int exit){
+     this.tokens = tokens;
+     this.symboltable = symboltable;
+     this.id = id;
+     this.exit = exit;
+     build();
+   }
+   @Override
+   String parse(){
+     return null;
+   }
+   void build(){
+     
+   }
+}
 
 // ..............................................................................................................
 class Program {
@@ -813,10 +863,10 @@ class Program {
     for (int i = 0; i < statements.size(); i++) {
       output += statements.get(i).parse();
     }
-     /*
-     * if(rsp!=0)
-     * output += "mov rsp, rbp\npop rbp\n";
-     */
+     
+      if(rsp!=0)
+      output += "add rsp, "+rsp+"\n";
+     
     //System.out.println("WRITTEN SUCCESSFULLY");
     return output;
   }
@@ -855,6 +905,12 @@ class Program {
             statements.add(exitstmt);
             symboltable.putAll(exitstmt.symboltable);
             break;
+          case tokenType._sleep:
+            // System.out.println("over here" + symboltable);
+            sleepStmt sleepstmt = new sleepStmt(new ArrayList<>(tokens.subList(index, i + 1)),
+                new HashMap<>(symboltable));
+            statements.add(sleepstmt);
+            break;
           case tokenType._type_int:
           case tokenType._type_boolean:
             // System.out.println("HELLO THEE");
@@ -869,7 +925,7 @@ class Program {
             assignStmt assignstmt1 = new assignStmt(new ArrayList<>(tokens.subList(index, i + 1)),
                 new HashMap<>(symboltable));
             statements.add(assignstmt1);
-            symboltable.putAll(assignstmt1.symboltable);
+            //symboltable.putAll(assignstmt1.symboltable);
             break;
           case tokenType._if:
             ifStmt ifstmt = new ifStmt(nextid * 10, new ArrayList<>(tokens.subList(index, i)),
