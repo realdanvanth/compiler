@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Stack;
 
+import java.util.Map;
 class compiler {
   String data;
   ArrayList<token> tokens;
@@ -212,13 +213,16 @@ enum tokenType {
   _else_if,
   _while,
   _func,
-  _sleep
+  _sleep,
+  _int_array
 }
-
+//................................................................................................................
+record vartoken(tokenType type,int start, int end){
+}
 // ...............................................................................................................
 abstract class Stmt {
   int index = 0;
-  HashMap<String, Integer> symboltable;
+  HashMap<String, vartoken> symboltable;
   public ArrayList<token> tokens;
 
   abstract String parse();
@@ -264,60 +268,40 @@ abstract class Stmt {
   }
 
   public int isValidtoUse(token ident, tokenType t,
-      HashMap<String, Integer> symboltable) {
-    if (!expect(tokenType._ident)) {
-      System.out.println("Identifier expected ");
-      System.exit(0);
+      HashMap<String, vartoken> symboltable,int i) {
+    if(symboltable.containsKey(ident.val())==false||symboltable.get(ident.val()).type()!=t)
+      return 0;
+    if(symboltable.get(ident.val()).type()!=tokenType._int_array){
+      return symboltable.get(ident.val()).start(); 
     }
-    //System.out.println("symboltable to check " + symboltable);
-    // System.exit(0);
-    // System.out.println(symboltable);
-    if (!(symboltable.containsKey("1" + ident.val()) ||
-        symboltable.containsKey("2" + ident.val()) ||
-        symboltable.containsKey("3" + ident.val()))) {
-      // System.out.println("Invalid usage of identifier ");
+    else{
+      vartoken var = symboltable.get(ident.val());
+      if(i<Math.abs((var.start()-var.end())%8)){
+        return (i*-8)+var.start();
+      }
       return 0;
     }
-    String check = "";
-    switch (t) {
-      case tokenType._int:
-        check = "1";
-        break;
-      case tokenType._boolean:
-        check = "2";
-        break;
-      case tokenType._string:
-        check = "3";
-        break;
-    }
-    if (symboltable.containsKey(check + ident.val())) {
-      return symboltable.get(check + ident.val());
-    }
-    // System.out.println("use the correct type " + check + ident);
-    // System.exit(0);
-    return 0;
   }
 
   public void addident(token ident, tokenType t,
-      HashMap<String, Integer> symboltable) {
-    if (symboltable.containsKey("1" + ident.val()) ||
-        symboltable.containsKey("2" + ident.val()) ||
-        symboltable.containsKey("3" + ident.val())) {
-      System.out.println("identifier in use");
+      HashMap<String, vartoken> symboltable,int length) {
+    if(symboltable.containsKey(ident.val())==false){
+      int count = 0;
+      for(Map.Entry<String,vartoken> var:symboltable.entrySet()){
+        if(var.getValue().type()==tokenType._int_array){
+          count += Math.abs(var.getValue().end()-var.getValue().start())/8+1;
+        }
+        else{
+          count++;
+        } 
+      }
+      symboltable.put(ident.val(),new vartoken(t, (count+1)*-8,(count+length-1)*-8));
     }
-    String check = "";
-    switch (t) {
-      case tokenType._int:
-        check = "1";
-        break;
-      case tokenType._boolean:
-        check = "2";
-        break;
-      case tokenType._string:
-        check = "3";
-        break;
+    else{
+      System.out.println("identifier already in use");
+      System.exit(0);
     }
-    symboltable.put(check + ident.val(), (symboltable.size() + 1) * -8);
+    //symboltable.put(check + ident.val(), (symboltable.size() + 1) * -8);
   }
 
   public void consume() {
@@ -329,7 +313,7 @@ abstract class Stmt {
 
 // ...............................................................................................................
 class exprStmt extends Stmt {
-  exprStmt(ArrayList<token> tokens, HashMap<String, Integer> symboltable) {
+  exprStmt(ArrayList<token> tokens, HashMap<String, vartoken> symboltable) {
     this.tokens = tokens;
     this.symboltable = symboltable;
     build();
@@ -345,7 +329,7 @@ class exprStmt extends Stmt {
         op++;
         output += "push " + tokens.get(index).val() + "\n";
       } else if (expect(tokenType._ident)) {
-        int addr = isValidtoUse(tokens.get(index), tokenType._int, symboltable);
+        int addr = isValidtoUse(tokens.get(index), tokenType._int, symboltable,1);
         if (addr == 0) {
           System.out.println("use correct type");
           System.exit(0);
@@ -397,7 +381,7 @@ class exprStmt extends Stmt {
       if (expect(tokenType._int)) {
         output.add(tokens.get(index));
       } else if (expect(tokenType._ident)) {
-        if (!symboltable.containsKey("1" + tokens.get(index).val())) {
+        if (isValidtoUse(tokens.get(index), tokenType._int, symboltable, 1)==0) {
           System.out.println(tokens.get(index).val() + "does not exist ");
           System.exit(0);
         }
@@ -466,9 +450,9 @@ class exprStmt extends Stmt {
 // ...............................................................................................................
 class exitStmt extends Stmt {
   Stmt expr;
-  HashMap<String, Integer> symboltable = new HashMap<>();
+  HashMap<String, vartoken> symboltable = new HashMap<>();
 
-  exitStmt(ArrayList<token> tokens, HashMap<String, Integer> symboltable) {
+  exitStmt(ArrayList<token> tokens, HashMap<String, vartoken> symboltable) {
     this.tokens = tokens;
     this.symboltable = symboltable;
     build();
@@ -491,8 +475,8 @@ class exitStmt extends Stmt {
 
 class sleepStmt extends Stmt{
   Stmt expr; 
-  HashMap<String,Integer>symboltable = new HashMap<>();
-  sleepStmt(ArrayList<token> tokens, HashMap<String, Integer> symboltable) {
+  HashMap<String,vartoken>symboltable = new HashMap<>();
+  sleepStmt(ArrayList<token> tokens, HashMap<String, vartoken> symboltable) {
     this.tokens = tokens;
     this.symboltable = symboltable;
     build();
@@ -512,9 +496,9 @@ class sleepStmt extends Stmt{
 
 // ...............................................................................................................
 class booleanStmt extends Stmt {
-  HashMap<String, Integer> symboltable;
+  HashMap<String, vartoken> symboltable;
 
-  booleanStmt(ArrayList<token> tokens, HashMap<String, Integer> symboltable) {
+  booleanStmt(ArrayList<token> tokens, HashMap<String, vartoken> symboltable) {
     this.tokens = tokens;
     this.symboltable = symboltable;
     build();
@@ -530,13 +514,14 @@ class booleanStmt extends Stmt {
         op++;
         output += "push " + tokens.get(index).val() + "\n";
       } else if (expect(tokenType._ident)) {
-        int addr = isValidtoUse(tokens.get(index), tokenType._int, symboltable);
-        int addr1 = isValidtoUse(tokens.get(index), tokenType._boolean, symboltable);
-        if (addr == addr1) {
+        int addr = isValidtoUse(tokens.get(index), tokenType._int, symboltable,1);
+        int addr1 = isValidtoUse(tokens.get(index), tokenType._boolean, symboltable,1);
+        if (addr == 0&&addr1==0) {
           System.out.println("Use correct type");
           System.exit(0);
-        }
-        output += "mov rax, [rbp " + (addr + addr1) + "]\npush rax\n";
+          }
+        output += "mov rax, [rbp " + (addr + addr1) + "]\npush rax\n";//change this cursed code later
+        //System.out.println(addr);
         op++;
       } else if (expect(tokenType._not)) {
         output += "pop rax\ntest rax, rax\nsete al\nmovzx rax,al\npush rax\n";
@@ -584,8 +569,8 @@ class booleanStmt extends Stmt {
       if (expect(tokenType._boolean) || expect(tokenType._int)) {
         output.add(tokens.get(index));
       } else if (expect(tokenType._ident)) {
-        if (!symboltable.containsKey("2" + tokens.get(index).val()) &&
-            !symboltable.containsKey("1" + tokens.get(index).val())) {
+        if (isValidtoUse(tokens.get(index), tokenType._int, symboltable, 1)==0
+            &&isValidtoUse(tokens.get(index), tokenType._boolean, symboltable, 1)==0) {
           System.out.println("2" + tokens.get(index).val() + "does not exist");
           System.out.println(symboltable);
           System.exit(0);
@@ -636,10 +621,10 @@ class booleanStmt extends Stmt {
 // ...............................................................................................................
 class assignStmt extends Stmt {
   Stmt expr;
-  HashMap<String, Integer> symboltable;
+  HashMap<String, vartoken> symboltable;
   String var;
 
-  assignStmt(ArrayList<token> tokens, HashMap<String, Integer> symboltable) {
+  assignStmt(ArrayList<token> tokens, HashMap<String, vartoken> symboltable) {
     // System.out.println(tokens);
     this.tokens = tokens;
     this.symboltable = symboltable;
@@ -649,7 +634,7 @@ class assignStmt extends Stmt {
 
   @Override
   String parse() {
-    return expr.parse() + "pop rax\nmov [rbp" + (symboltable.get(var)) +
+    return expr.parse() + "pop rax\nmov [rbp" + (symboltable.get(var).start()) +
         "], rax\n";
   }
 
@@ -657,15 +642,15 @@ class assignStmt extends Stmt {
     if (expect(tokenType._type_int)) {
       consume();
       // hardExpect(tokenType._ident);
-      addident(tokens.get(index), tokenType._int, symboltable);
-      var = "1" + tokens.get(index).val();
+      addident(tokens.get(index), tokenType._int, symboltable,1);//another check to be added 
+      var = tokens.get(index).val();
       consume();
       hardExpect(tokenType._equal);
       expr = new exprStmt(nextOccurance(tokenType._semi_colon), symboltable);
     } else if (expect(tokenType._type_boolean)) {
       consume();
-      addident(tokens.get(index), tokenType._boolean, symboltable);
-      var = "2" + tokens.get(index).val();
+      addident(tokens.get(index), tokenType._boolean, symboltable,1);
+      var = tokens.get(index).val();
       consume();
       hardExpect(tokenType._equal);
       expr = new booleanStmt(nextOccurance(tokenType._semi_colon), symboltable);
@@ -673,16 +658,16 @@ class assignStmt extends Stmt {
     } else if (expect(
         tokenType._type_string)) { // symbol table to be implemented
       consume();
-      var = "3" + tokens.get(index).val(); // to be filled out in the future
+      var = tokens.get(index).val(); // to be filled out in the future
     } else if (expect(tokenType._ident)) {
-      if (isValidtoUse(tokens.get(index), tokenType._int, symboltable) != 0) {
-        var = "1" + tokens.get(index).val();
+      if (isValidtoUse(tokens.get(index), tokenType._int, symboltable,1) != 0) {
+        var = tokens.get(index).val();
         consume();
         hardExpect(tokenType._equal);
         expr = new exprStmt(nextOccurance(tokenType._semi_colon), symboltable);
       } else if (isValidtoUse(tokens.get(index), tokenType._boolean,
-          symboltable) != 0) {
-        var = "2" + tokens.get(index).val();
+          symboltable,1) != 0) {
+        var = tokens.get(index).val();
         consume();
         hardExpect(tokenType._equal);
         expr = new exprStmt(nextOccurance(tokenType._semi_colon), symboltable);
@@ -702,7 +687,7 @@ class ifStmt extends Stmt {
   int id;
   int exit;
 
-  ifStmt(int id, ArrayList<token> tokens, HashMap<String, Integer> symboltable,
+  ifStmt(int id, ArrayList<token> tokens, HashMap<String, vartoken> symboltable,
       int exit) {
     this.tokens = tokens;
     this.symboltable = symboltable;
@@ -778,7 +763,7 @@ class forStmt extends Stmt {
   int id;
   int exit;
 
-  forStmt(int id, ArrayList<token> tokens, HashMap<String, Integer> symboltable,
+  forStmt(int id, ArrayList<token> tokens, HashMap<String, vartoken> symboltable,
       int exit) {
     this.tokens = tokens;
     this.symboltable = symboltable;
@@ -816,7 +801,7 @@ class function extends Stmt{
    Program pr;
    int id;
    int exit;
-   function(int id, ArrayList<token>tokens,HashMap<String,Integer> symboltable,int exit){
+   function(int id, ArrayList<token>tokens,HashMap<String,vartoken> symboltable,int exit){
      this.tokens = tokens;
      this.symboltable = symboltable;
      this.id = id;
@@ -837,10 +822,10 @@ class Program {
   List<token> tokens;
   List<Stmt> statements;
   int id;
-  HashMap<String, Integer> symboltable = new HashMap<>();
+  HashMap<String, vartoken> symboltable = new HashMap<>();
   int rsp;
 
-  Program(List<token> tokens, int id, HashMap<String, Integer> symboltable) {
+  Program(List<token> tokens, int id, HashMap<String, vartoken> symboltable) {
     this.tokens = tokens;
     this.statements = new ArrayList<>();
     this.symboltable = symboltable;
@@ -903,7 +888,7 @@ class Program {
             exitStmt exitstmt = new exitStmt(new ArrayList<>(tokens.subList(index, i + 1)),
                 new HashMap<>(symboltable));
             statements.add(exitstmt);
-            symboltable.putAll(exitstmt.symboltable);
+            //symboltable.putAll(exitstmt.symboltable);
             break;
           case tokenType._sleep:
             // System.out.println("over here" + symboltable);
@@ -941,7 +926,7 @@ class Program {
             nextid++;
             break;
           default:
-            System.out.println("Syntax error");
+            System.out.println("Syntax error"+tokens.get(index));
             System.exit(0);
             break;
         }
