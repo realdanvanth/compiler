@@ -1,5 +1,5 @@
 int i = 1;
-int n = 2147483647;
+int n = 214748;
 int f = 0;
 int rem = 0;
 while(i<n){
