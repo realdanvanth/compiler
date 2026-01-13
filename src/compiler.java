@@ -13,7 +13,7 @@ class compiler {
 
   public static void main(String args[]) throws IOException {
     compiler inst = new compiler();
-    inst.readFile("test.tl");
+    inst.readFile("test.dl");
     inst.tokenize();
     Program a = new Program(inst.tokens, 0, new HashMap<>());
     inst.write(a.parse());
@@ -554,7 +554,7 @@ class booleanStmt extends Stmt {
           System.exit(0);
         }
         output += "mov rax, [rbp " + (addr + addr1) +
-            "]\npush rax\n"; // change this cursed code later
+            "]\npush rax\n"; // c c change this cursed code later
         // System.out.println(addr);
         op++;
       } else if (expect(tokenType._not)) {

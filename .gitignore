@@ -1,4 +1,7 @@
+# Java compiled files
 *.class
+
+# Object files (C/C++, etc.)
 *.o
-output
+*.obj
 
