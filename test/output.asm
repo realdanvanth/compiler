@@ -2,7 +2,7 @@ global _start
 _start:
 push rbp
 mov rbp, rsp
-sub rsp,32
+sub rsp,24
 push 1
 pop rax
 mov [rbp-8], rax
@@ -12,9 +12,6 @@ mov [rbp-16], rax
 push 0
 pop rax
 mov [rbp-24], rax
-push 0
-pop rax
-mov [rbp-32], rax
 L10:
 mov rax, [rbp -8]
 push rax
@@ -30,6 +27,7 @@ pop rax
 cmp rax,0
 je exitfor2
 L100:
+sub rsp, 8
 mov rax, [rbp-16]
 push rax
 mov rax, [rbp-8]
@@ -76,6 +74,7 @@ add rax, rbx
 push rax
 pop rax
 mov [rbp-8], rax
+add rsp, 8
 jmp L10
 exitfor2:
 mov rax, [rbp -24]
@@ -103,4 +102,4 @@ push 0
 pop rdi
 mov rax, 60
 syscall
-add rsp, 32
+add rsp, 24
