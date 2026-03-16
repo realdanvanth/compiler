@@ -1,7 +1,6 @@
 #include <bits/stdc++.h>
 #include <fstream>
 #include <iostream>
-#include <memory>
 using namespace std;
 string readfile(string f) {
   string out = "";
@@ -49,11 +48,66 @@ struct Token {
 };
 class Expr {
 public:
-  tokenType op;
   Expr *left;
   Expr *right;
-  tokenType val;
-  Expr(tokenType op) { this->op = op; }
+  Token op;
+  Expr(Token op) { this->op = op; }
+};
+class Expression { // our goal is to build a tree and put it in root
+public:
+  std::vector<Token> tokens;
+  int index;
+  Expr *root;
+  Expr *right;
+  Expression(std::vector<Token> tokens) {
+    this->index = 0;
+    this->tokens = tokens;
+  }
+  bool parseExpr() {
+    if (tokens[0].type != _ident || tokens[0].type != _number) {
+      return false;
+    }
+    root = new Expr(tokens[0]);
+    right = root;
+    while (index < tokens.size()) {
+      if (index % 2 == 1 &&
+          isOp(tokens[index])) { // for now we dont have brackets so this is the
+                                 // case
+        if (precedence(root->op) > precedence(tokens[index])) {
+          Expr *t = new Expr(tokens[index]);
+          t->left = root;
+          root = t;
+          right = root;
+        } else {
+          Expr *t = new Expr(tokens[index]);
+          t->left = right;
+          right = t;
+        }
+
+      } else if (tokens[index].type == _ident ||
+                 tokens[index].type == _number) {
+        right->right = new Expr(tokens[index]);
+      }
+      index++;
+    }
+    return true;
+  }
+  bool isOp(Token token) {
+    if (token.type == _add || token.type == _sub || token.type == _mul ||
+        token.type == _div || token.type == _mod)
+      return true;
+    return false;
+  }
+  int precedence(Token token) {
+    if (token.type == _ident || token.type == _number) {
+      return 3;
+    }
+    if (token.type == _add || token.type == _sub) {
+      return 2;
+    } else {
+      return 1;
+    }
+  }
 };
 std::vector<Token> tokens;
 void lexer(string code) { // takes string and returns an array of tokens
@@ -109,5 +163,4 @@ void lexer(string code) { // takes string and returns an array of tokens
     i++;
   }
 }
-
 int main() { lexer(readfile("test.dl")); }
