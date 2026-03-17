@@ -1,6 +1,7 @@
 #include <bits/stdc++.h>
 #include <fstream>
 #include <iostream>
+#include <vector>
 using namespace std;
 string readfile(string f) {
   string out = "";
@@ -116,10 +117,36 @@ public:
         }
         // rightnode = rightnode->right;
       } else if (tokens[index].type == _open_braces) { // todo
+        int l = ++index;
+        while (index < tokens.size() && tokens[index].type != _close_braces) {
+          index++;
+        }
+        if (index >= tokens.size()) {
+          cout << "bracket error check again\n";
+          exit(0);
+        }
+        // cout << "hlllo";
+        // cout << tokens[index].text;
+        Expr *right = root->right;
+        if (right != nullptr) {
+          while (right->right != nullptr) {
+            right = right->right;
+          }
+          Expression *r = new Expression(
+              std::vector<Token>(tokens.begin() + l, tokens.begin() + index));
+          r->parseExpr();
+          root->right = r->root;
+
+        } else {
+          Expression *r = new Expression(
+              std::vector<Token>(tokens.begin() + l, tokens.begin() + index));
+          r->parseExpr();
+          root->right = r->root;
+        }
       }
       index++;
     }
-    root->parse();
+    // root->parse();
     return true;
   }
   bool isOp(Token token) {
@@ -174,11 +201,11 @@ void lexer(string code) { // takes string and returns an array of tokens
       tokens.push_back({_semi_colon, ""});
       cout << ";\n";
     } else if (code[i] == '(') {
-      tokens.push_back({_open_braces, ""});
-      cout << "(\n";
+      tokens.push_back({_open_braces, "("});
+      // cout << "(\n";
     } else if (code[i] == ')') {
-      tokens.push_back({_close_braces, ""});
-      cout << ")\n";
+      tokens.push_back({_close_braces, ")"});
+      // cout << ")\n";
     } else if (code[i] == '+') {
       tokens.push_back({_add, "+"});
     } else if (code[i] == '-') {
@@ -197,4 +224,5 @@ int main() {
   lexer(readfile("test.dl"));
   Expression *hello = new Expression(tokens);
   hello->parseExpr();
+  hello->root->parse();
 }
