@@ -51,11 +51,13 @@ class Expr {
 public:
   Expr *left;
   Expr *right;
+  bool isBraces;
   Token op;
   Expr(Token op) {
     this->op = op;
     left = nullptr;
     right = nullptr;
+    isBraces = false;
   }
   void parse() {
     if (left != nullptr) {
@@ -64,6 +66,37 @@ public:
     cout << " " << op.text;
     if (right != nullptr) {
       right->parse();
+    }
+  }
+  int result() {
+    if (op.type == _number) {
+      return std::stoi(op.text);
+    } else {
+      if (op.type == _add) {
+        return left->result() + right->result();
+      } else if (op.type == _sub) {
+        return left->result() - right->result();
+      } else if (op.type == _mul) {
+        return left->result() * right->result();
+      } else if (op.type == _div) {
+        return left->result() / right->result();
+      } else if (op.type == _mod) {
+        return left->result() % right->result();
+      }
+    }
+    return 0;
+  }
+  void print() {
+    cout << op.text << "\n";
+    if (left != nullptr) {
+      cout << " ";
+      left->print();
+      cout << "\n";
+    }
+    if (right != nullptr) {
+      cout << " ";
+      right->print();
+      cout << "\n";
     }
   }
 };
@@ -78,16 +111,28 @@ public:
     this->tokens = tokens;
   }
   bool parseExpr() {
-    if (tokens[0].type != _ident && tokens[0].type != _number) {
+    if (tokens[0].type != _ident && tokens[0].type != _number &&
+        tokens[0].type != _open_braces) {
       return false;
     }
-    root = new Expr(tokens[0]);
+    if (tokens[0].type != _open_braces) {
+      root = new Expr(tokens[0]);
+    } else {
+      findnext(_close_braces);
+      Expression *r = new Expression(
+          std::vector<Token>(tokens.begin() + 1, tokens.begin() + index));
+      // r->root->isBraces = true;
+      r->parseExpr();
+      root = r->root;
+      root->isBraces = true;
+      // root->print();
+    }
     index++;
     while (index < tokens.size()) {
       if (index % 2 == 1 &&
           isOp(tokens[index])) { // for now we dont have brackets so this is the
                                  // case
-        if (precedence(root->op) <= precedence(tokens[index])) {
+        if (precedence(root) <= precedence(tokens[index])) {
           Expr *t = new Expr(
               tokens[index]); // this is cause +, stays above * and _ident
                               //  and * stays above ident , and the = there
@@ -96,8 +141,8 @@ public:
           root = t;
 
         } else {
-          cout << "came here\n"; // this is if a higher operator * comes after a
-                                 // lower one + so we rewrite the tree
+          // this is if a higher operator * comes after a
+          // lower one + so we rewrite the tree
           Expr *t = new Expr(tokens[index]);
           t->left = root->right;
           root->right = t;
@@ -112,21 +157,11 @@ public:
             right = right->right;
           }
           right->right = new Expr(tokens[index]);
-        } else {
+        } else
           root->right = new Expr(tokens[index]);
-        }
-        // rightnode = rightnode->right;
       } else if (tokens[index].type == _open_braces) { // todo
-        int l = ++index;
-        while (index < tokens.size() && tokens[index].type != _close_braces) {
-          index++;
-        }
-        if (index >= tokens.size()) {
-          cout << "bracket error check again\n";
-          exit(0);
-        }
-        // cout << "hlllo";
-        // cout << tokens[index].text;
+        int l = index + 1;
+        findnext(_close_braces);
         Expr *right = root->right;
         if (right != nullptr) {
           while (right->right != nullptr) {
@@ -135,19 +170,25 @@ public:
           Expression *r = new Expression(
               std::vector<Token>(tokens.begin() + l, tokens.begin() + index));
           r->parseExpr();
-          root->right = r->root;
-
+          r->root->isBraces = true;
+          right->right = r->root;
         } else {
           Expression *r = new Expression(
               std::vector<Token>(tokens.begin() + l, tokens.begin() + index));
           r->parseExpr();
+          r->root->isBraces = true;
           root->right = r->root;
         }
       }
       index++;
     }
-    // root->parse();
     return true;
+  }
+  void print() {
+    for (int i = 0; i < tokens.size(); i++) {
+      cout << tokens[i].text;
+    }
+    cout << "\nwe done\n";
   }
   bool isOp(Token token) {
     if (token.type == _add || token.type == _sub || token.type == _mul ||
@@ -155,11 +196,44 @@ public:
       return true;
     return false;
   }
+  int findnext(tokenType t) {
+    int depth = 0;
+    while (index < tokens.size()) {
+      if (tokens[index].type == _open_braces)
+        depth++;
+      if (tokens[index].type == _close_braces)
+        depth--;
+      if (depth == 0 && tokens[index].type == t) {
+        cout << "founddddd";
+        break;
+      } else if (tokens[index].type == t) {
+        cout << "found but depth not 0\n";
+      }
+      index++;
+    }
+    if (index >= tokens.size()) {
+      cout << "token not found lil vro";
+      exit(0);
+    } else {
+      // cout << tokens[index].text;
+      return index;
+    }
+  }
   int precedence(Token token) {
     if (token.type == _ident || token.type == _number) {
       return 0;
     }
     if (token.type == _add || token.type == _sub) {
+      return 2;
+    } else {
+      return 1;
+    }
+  }
+  int precedence(Expr *expr) {
+    if (expr->isBraces || expr->op.type == _ident || expr->op.type == _number) {
+      return 0;
+    }
+    if (expr->op.type == _add || expr->op.type == _sub) {
       return 2;
     } else {
       return 1;
@@ -221,8 +295,16 @@ void lexer(string code) { // takes string and returns an array of tokens
   }
 }
 int main() {
+  cout << "hello world";
   lexer(readfile("test.dl"));
   Expression *hello = new Expression(tokens);
+  // hello->print();
+  // hello->index += 1;
+  // cout << hello->findnext(_close_braces);
   hello->parseExpr();
   hello->root->parse();
+  cout << ".........\n";
+  cout << hello->root->result();
+  cout << "\n";
+  // hello->root->print();
 }
