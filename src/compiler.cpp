@@ -51,45 +51,75 @@ public:
   Expr *left;
   Expr *right;
   Token op;
-  Expr(Token op) { this->op = op; }
+  Expr(Token op) {
+    this->op = op;
+    left = nullptr;
+    right = nullptr;
+  }
+  void parse() {
+    if (left != nullptr) {
+      left->parse();
+    }
+    cout << " " << op.text;
+    if (right != nullptr) {
+      right->parse();
+    }
+  }
 };
 class Expression { // our goal is to build a tree and put it in root
 public:
   std::vector<Token> tokens;
   int index;
   Expr *root;
-  Expr *right;
+  Expr *rightnode;
   Expression(std::vector<Token> tokens) {
     this->index = 0;
     this->tokens = tokens;
   }
   bool parseExpr() {
-    if (tokens[0].type != _ident || tokens[0].type != _number) {
+    if (tokens[0].type != _ident && tokens[0].type != _number) {
       return false;
     }
     root = new Expr(tokens[0]);
-    right = root;
+    index++;
     while (index < tokens.size()) {
       if (index % 2 == 1 &&
           isOp(tokens[index])) { // for now we dont have brackets so this is the
                                  // case
-        if (precedence(root->op) > precedence(tokens[index])) {
-          Expr *t = new Expr(tokens[index]);
+        if (precedence(root->op) <= precedence(tokens[index])) {
+          Expr *t = new Expr(
+              tokens[index]); // this is cause +, stays above * and _ident
+                              //  and * stays above ident , and the = there
+                              //  ensures left better
           t->left = root;
           root = t;
-          right = root;
+
         } else {
+          cout << "came here\n"; // this is if a higher operator * comes after a
+                                 // lower one + so we rewrite the tree
           Expr *t = new Expr(tokens[index]);
-          t->left = right;
-          right = t;
+          t->left = root->right;
+          root->right = t;
         }
 
       } else if (tokens[index].type == _ident ||
                  tokens[index].type == _number) {
-        right->right = new Expr(tokens[index]);
+        Expr *right = root->right; // we always find the rightmost element and
+                                   // append the var or number
+        if (right != nullptr) {
+          while (right->right != nullptr) {
+            right = right->right;
+          }
+          right->right = new Expr(tokens[index]);
+        } else {
+          root->right = new Expr(tokens[index]);
+        }
+        // rightnode = rightnode->right;
+      } else if (tokens[index].type == _open_braces) { // todo
       }
       index++;
     }
+    root->parse();
     return true;
   }
   bool isOp(Token token) {
@@ -100,7 +130,7 @@ public:
   }
   int precedence(Token token) {
     if (token.type == _ident || token.type == _number) {
-      return 3;
+      return 0;
     }
     if (token.type == _add || token.type == _sub) {
       return 2;
@@ -125,9 +155,9 @@ void lexer(string code) { // takes string and returns an array of tokens
       }
       if (buffer == "exit") {
         tokens.push_back({_sysexit, ""});
-        cout << "exit\n";
+        // cout << "exit\n";
       } else {
-        cout << "error\n";
+        tokens.push_back({_ident, buffer});
       }
     } else if (isdigit(code[i])) { // integers
       string buffer = "";
@@ -139,7 +169,7 @@ void lexer(string code) { // takes string and returns an array of tokens
         i--;
       }
       tokens.push_back({_number, buffer});
-      cout << buffer << "\n";
+      // cout << buffer << "\n";
     } else if (code[i] == ';') {
       tokens.push_back({_semi_colon, ""});
       cout << ";\n";
@@ -150,17 +180,21 @@ void lexer(string code) { // takes string and returns an array of tokens
       tokens.push_back({_close_braces, ""});
       cout << ")\n";
     } else if (code[i] == '+') {
-      tokens.push_back({_add, ""});
+      tokens.push_back({_add, "+"});
     } else if (code[i] == '-') {
-      tokens.push_back({_sub, ""});
+      tokens.push_back({_sub, "-"});
     } else if (code[i] == '*') {
-      tokens.push_back({_mul, ""});
+      tokens.push_back({_mul, "*"});
     } else if (code[i] == '/') {
-      tokens.push_back({_div, ""});
+      tokens.push_back({_div, "/"});
     } else if (code[i] == '%') {
-      tokens.push_back({_mod, ""});
+      tokens.push_back({_mod, "%"});
     }
     i++;
   }
 }
-int main() { lexer(readfile("test.dl")); }
+int main() {
+  lexer(readfile("test.dl"));
+  Expression *hello = new Expression(tokens);
+  hello->parseExpr();
+}
