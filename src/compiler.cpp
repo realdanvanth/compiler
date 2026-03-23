@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <bits/stdc++.h>
 #include <fstream>
 #include <iostream>
@@ -58,15 +59,6 @@ public:
     left = nullptr;
     right = nullptr;
     isBraces = false;
-  }
-  void parse() {
-    if (left != nullptr) {
-      left->parse();
-    }
-    cout << " " << op.text;
-    if (right != nullptr) {
-      right->parse();
-    }
   }
   int result() {
     if (op.type == _number) {
@@ -170,7 +162,10 @@ public:
           Expression *r = new Expression(
               std::vector<Token>(tokens.begin() + l, tokens.begin() + index));
           r->parseExpr();
-          r->root->isBraces = true;
+          r->root->isBraces =
+              true; // so subexpressions have the same priority
+                    // as an ident or a number , they must be lower in the tree
+
           right->right = r->root;
         } else {
           Expression *r = new Expression(
@@ -188,7 +183,6 @@ public:
     for (int i = 0; i < tokens.size(); i++) {
       cout << tokens[i].text;
     }
-    cout << "\nwe done\n";
   }
   bool isOp(Token token) {
     if (token.type == _add || token.type == _sub || token.type == _mul ||
@@ -204,15 +198,12 @@ public:
       if (tokens[index].type == _close_braces)
         depth--;
       if (depth == 0 && tokens[index].type == t) {
-        cout << "founddddd";
         break;
-      } else if (tokens[index].type == t) {
-        cout << "found but depth not 0\n";
       }
       index++;
     }
     if (index >= tokens.size()) {
-      cout << "token not found lil vro";
+      cout << "token not found " << t;
       exit(0);
     } else {
       // cout << tokens[index].text;
@@ -256,7 +247,7 @@ void lexer(string code) { // takes string and returns an array of tokens
       }
       if (buffer == "exit") {
         tokens.push_back({_sysexit, ""});
-        // cout << "exit\n";
+
       } else {
         tokens.push_back({_ident, buffer});
       }
@@ -270,16 +261,12 @@ void lexer(string code) { // takes string and returns an array of tokens
         i--;
       }
       tokens.push_back({_number, buffer});
-      // cout << buffer << "\n";
     } else if (code[i] == ';') {
       tokens.push_back({_semi_colon, ""});
-      cout << ";\n";
     } else if (code[i] == '(') {
       tokens.push_back({_open_braces, "("});
-      // cout << "(\n";
     } else if (code[i] == ')') {
       tokens.push_back({_close_braces, ")"});
-      // cout << ")\n";
     } else if (code[i] == '+') {
       tokens.push_back({_add, "+"});
     } else if (code[i] == '-') {
@@ -294,17 +281,90 @@ void lexer(string code) { // takes string and returns an array of tokens
     i++;
   }
 }
+class Statement {
+protected:
+  std::vector<Token> tokens;
+  int index;
+
+public:
+  Statement(std::vector<Token> t) {
+    tokens = t;
+    index = 0;
+  }
+  bool expect(tokenType t) {
+    if (index < tokens.size()) {
+      if (tokens[index].type == t)
+        index++;
+      return true;
+    }
+    return false;
+  }
+  void hardexpect(tokenType t) {
+    if (index < tokens.size()) {
+      if (tokens[index].type == t) {
+        index++;
+        return;
+      }
+    }
+    cout << t << " expeceted\n";
+    exit(0);
+  }
+  int findnext(tokenType t) {
+    int depth = 0;
+    while (index < tokens.size()) {
+      if (tokens[index].type == _open_braces)
+        depth++;
+      if (tokens[index].type == _close_braces && depth > 0)
+        depth--;
+      if (depth == 0 && tokens[index].type == t) {
+        break;
+      } else if (tokens[index].type == t) {
+        cout << "found but depth not 0\n";
+      }
+      index++;
+    }
+    if (index >= tokens.size()) {
+      return -999;
+    } else {
+      return index;
+    }
+  }
+  virtual void build() = 0;
+};
+struct Symbol {
+  string name;
+  string type;
+};
+class Declaration : public Statement {
+public:
+  Declaration(std::vector<Token> t) : Statement(t) { build(); }
+  void build() override {
+    if (expect(_type_int)) {
+    }
+  }
+};
+class Program : public Statement {
+  std::vector<Statement *> Statements;
+  Program(std::vector<Token> t, unordered_map<string, Symbol> symboltable)
+      : Statement(t) {
+    build();
+  }
+  void build() override {
+    int left = index;
+    while (findnext(_semi_colon) != -999) {
+      if (tokens[left].type == _type_int || tokens[left].type == _boolean) {
+        Statements.push_back(new Declaration(
+            std::vector<Token>(tokens.begin() + left, tokens.begin() + index)));
+      }
+      index++;
+      left = index;
+    }
+  }
+};
 int main() {
-  cout << "hello world";
   lexer(readfile("test.dl"));
   Expression *hello = new Expression(tokens);
-  // hello->print();
-  // hello->index += 1;
-  // cout << hello->findnext(_close_braces);
   hello->parseExpr();
-  hello->root->parse();
-  cout << ".........\n";
   cout << hello->root->result();
-  cout << "\n";
-  // hello->root->print();
+  return 0;
 }
