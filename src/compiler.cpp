@@ -44,6 +44,10 @@ enum tokenType {
   _else_if,
   _while,
 };
+struct Symbol {
+  string text;
+  tokenType type;
+};
 struct Token {
   tokenType type;
   string text;
@@ -329,17 +333,28 @@ public:
       return index;
     }
   }
-  virtual void build() = 0;
-};
-struct Symbol {
-  string name;
-  string type;
+  virtual void build(unordered_map<string, Symbol> symboltable) = 0;
 };
 class Declaration : public Statement {
 public:
-  Declaration(std::vector<Token> t) : Statement(t) { build(); }
-  void build() override {
+  Declaration(std::vector<Token> t, unordered_map<string, Symbol> symboltable)
+      : Statement(t) {
+    build(symboltable);
+  }
+  void build(unordered_map<string, Symbol> symboltable) override {
     if (expect(_type_int)) {
+      int l = index;
+      hardexpect(_ident);
+      hardexpect(_equal);
+      if (symboltable.contains(tokens[l].text)) {
+        cout << "variable exists\n";
+        exit(0);
+      } else {
+        symboltable[tokens[l].text] = Symbol{tokens[l].text, tokens[l].type};
+      }
+
+    } else if (expect(_type_boolean)) {
+      cout << "to do\n";
     }
   }
 };
@@ -347,14 +362,17 @@ class Program : public Statement {
   std::vector<Statement *> Statements;
   Program(std::vector<Token> t, unordered_map<string, Symbol> symboltable)
       : Statement(t) {
-    build();
+    build(symboltable);
   }
-  void build() override {
+  void build(unordered_map<string, Symbol> symboltable) override {
     int left = index;
     while (findnext(_semi_colon) != -999) {
-      if (tokens[left].type == _type_int || tokens[left].type == _boolean) {
-        Statements.push_back(new Declaration(
-            std::vector<Token>(tokens.begin() + left, tokens.begin() + index)));
+      std::vector<Token> slice =
+          std::vector<Token>(tokens.begin() + left, tokens.begin() + index);
+      if (tokens[left].type == _type_int ||
+          tokens[left].type ==
+              _boolean) { // non scoping statements first as symboltables change
+        Statements.push_back(new Declaration(slice, symboltable));
       }
       index++;
       left = index;
