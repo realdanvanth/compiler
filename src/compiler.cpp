@@ -106,6 +106,7 @@ public:
   Expression(std::vector<Token> tokens) {
     this->index = 0;
     this->tokens = tokens;
+    parseExpr();
   }
   bool parseExpr() {
     if (tokens[0].type != _ident && tokens[0].type != _number &&
@@ -340,14 +341,16 @@ public:
     }
   }
   virtual void build() = 0;
+  virtual void execute() = 0;
 };
 class Declaration : public Statement {
 public:
+  Expression *expr;
   Declaration(std::vector<Token> t, unordered_map<string, Symbol> &symboltable)
       : Statement(t, symboltable) {
     build();
   }
-  void build() {
+  void build() override {
     if (expect(_type_int)) {
       int l = index;
       hardexpect(_ident);
@@ -356,14 +359,16 @@ public:
         cout << "variable exists\n";
         exit(0);
       } else {
-        cout << "inserted";
         symboltable[tokens[l].text] = Symbol{tokens[l].text, _type_int};
+        expr = new Expression(std::vector<Token>(
+            tokens.begin() + index, tokens.begin() + tokens.size()));
       }
 
     } else if (expect(_type_boolean)) {
       cout << "to do\n";
     }
   }
+  void execute() override { cout << expr->root->result(); }
 };
 class Program {
 public:
@@ -407,10 +412,14 @@ public:
           tokens[left].type ==
               _boolean) { // non scoping statements first as symboltables change
         Statements.push_back(new Declaration(slice, symboltable));
-        cout << "hello \n";
       }
       index++;
       left = index;
+    }
+  }
+  void execute() {
+    for (int i = 0; i < Statements.size(); i++) {
+      Statements[i]->execute();
     }
   }
 };
@@ -418,4 +427,5 @@ int main() {
   lexer(readfile("test.dl"));
   unordered_map<string, Symbol> symboltable;
   Program *p = new Program(tokens, symboltable);
+  p->execute();
 }
