@@ -2,6 +2,7 @@
 #include <bits/stdc++.h>
 #include <fstream>
 #include <iostream>
+#include <istream>
 #include <vector>
 using namespace std;
 string readfile(string f) {
@@ -252,6 +253,8 @@ void lexer(string code) { // takes string and returns an array of tokens
       if (buffer == "exit") {
         tokens.push_back({_sysexit, ""});
 
+      } else if (buffer == "int") {
+        tokens.push_back({_type_int, ""});
       } else {
         tokens.push_back({_ident, buffer});
       }
@@ -281,6 +284,8 @@ void lexer(string code) { // takes string and returns an array of tokens
       tokens.push_back({_div, "/"});
     } else if (code[i] == '%') {
       tokens.push_back({_mod, "%"});
+    } else if (code[i] == '=') {
+      tokens.push_back({_equal, "="});
     }
     i++;
   }
@@ -289,16 +294,17 @@ class Statement {
 protected:
   std::vector<Token> tokens;
   int index;
+  std::unordered_map<string, Symbol> &symboltable;
 
 public:
-  Statement(std::vector<Token> t) {
+  Statement(std::vector<Token> t, unordered_map<string, Symbol> &s)
+      : symboltable(s) {
     tokens = t;
     index = 0;
   }
   bool expect(tokenType t) {
-    if (index < tokens.size()) {
-      if (tokens[index].type == t)
-        index++;
+    if (index < tokens.size() && tokens[index].type == t) {
+      index++;
       return true;
     }
     return false;
@@ -333,15 +339,15 @@ public:
       return index;
     }
   }
-  virtual void build(unordered_map<string, Symbol> symboltable) = 0;
+  virtual void build() = 0;
 };
 class Declaration : public Statement {
 public:
-  Declaration(std::vector<Token> t, unordered_map<string, Symbol> symboltable)
-      : Statement(t) {
-    build(symboltable);
+  Declaration(std::vector<Token> t, unordered_map<string, Symbol> &symboltable)
+      : Statement(t, symboltable) {
+    build();
   }
-  void build(unordered_map<string, Symbol> symboltable) override {
+  void build() {
     if (expect(_type_int)) {
       int l = index;
       hardexpect(_ident);
@@ -350,7 +356,8 @@ public:
         cout << "variable exists\n";
         exit(0);
       } else {
-        symboltable[tokens[l].text] = Symbol{tokens[l].text, tokens[l].type};
+        cout << "inserted";
+        symboltable[tokens[l].text] = Symbol{tokens[l].text, _type_int};
       }
 
     } else if (expect(_type_boolean)) {
@@ -358,13 +365,40 @@ public:
     }
   }
 };
-class Program : public Statement {
+class Program {
+public:
   std::vector<Statement *> Statements;
-  Program(std::vector<Token> t, unordered_map<string, Symbol> symboltable)
-      : Statement(t) {
-    build(symboltable);
+  std::vector<Token> tokens;
+  int index;
+  unordered_map<string, Symbol> symboltable;
+  Program(std::vector<Token> t,
+          std::unordered_map<string, Symbol> symboltable) {
+    this->symboltable = symboltable;
+    this->tokens = t;
+    index = 0;
+    build();
   }
-  void build(unordered_map<string, Symbol> symboltable) override {
+  int findnext(tokenType t) {
+    int depth = 0;
+    while (index < tokens.size()) {
+      if (tokens[index].type == _open_braces)
+        depth++;
+      if (tokens[index].type == _close_braces && depth > 0)
+        depth--;
+      if (depth == 0 && tokens[index].type == t) {
+        break;
+      } else if (tokens[index].type == t) {
+        cout << "found but depth not 0\n";
+      }
+      index++;
+    }
+    if (index >= tokens.size()) {
+      return -999;
+    } else {
+      return index;
+    }
+  }
+  void build() {
     int left = index;
     while (findnext(_semi_colon) != -999) {
       std::vector<Token> slice =
@@ -373,6 +407,7 @@ class Program : public Statement {
           tokens[left].type ==
               _boolean) { // non scoping statements first as symboltables change
         Statements.push_back(new Declaration(slice, symboltable));
+        cout << "hello \n";
       }
       index++;
       left = index;
@@ -381,8 +416,6 @@ class Program : public Statement {
 };
 int main() {
   lexer(readfile("test.dl"));
-  Expression *hello = new Expression(tokens);
-  hello->parseExpr();
-  cout << hello->root->result();
-  return 0;
+  unordered_map<string, Symbol> symboltable;
+  Program *p = new Program(tokens, symboltable);
 }
